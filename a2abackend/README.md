@@ -2,10 +2,11 @@
 
 Welcome to **TellTimeAgent** and the **Multi-Agent** demo — a minimal Agent2Agent (A2A) implementation using Google's [Agent Development Kit (ADK)](https://github.com/google/agent-development-kit).
 
-This example demonstrates how to build, serve, and interact with three A2A agents:
+This example demonstrates how to build, serve, and interact with four A2A agents:
 1. **TellTimeAgent** – replies with the current time.
 2. **GreetingAgent** – fetches the time and generates a poetic greeting.
-3. **OrchestratorAgent** – routes requests to the appropriate child agent.
+3. **CarbonCreditAgent** – negotiates carbon credit purchases from marketplace companies.
+4. **OrchestratorAgent** – routes requests to the appropriate child agent.
 
 All of them work together seamlessly via A2A discovery and JSON-RPC.
 
@@ -30,6 +31,11 @@ version_3_multi_agent/
 │   │   ├── __main__.py         # Starts GreetingAgent server
 │   │   ├── agent.py            # Orchestrator that calls TellTimeAgent + LLM greeting
 │   │   └── task_manager.py     # Task handler for GreetingAgent
+│   ├── carbon_credit_agent/
+│   │   ├── __main__.py         # Starts CarbonCreditAgent server
+│   │   ├── agent.py            # Carbon credit negotiation agent with database integration
+│   │   ├── task_manager.py     # Task handler for CarbonCreditAgent
+│   │   └── README.md           # Carbon credit agent documentation
 │   └── host_agent/
 │       ├── entry.py            # CLI to start OrchestratorAgent server
 │       ├── orchestrator.py     # LLM router + TaskManager for OrchestratorAgent
@@ -81,6 +87,13 @@ version_3_multi_agent/
     echo "GOOGLE_API_KEY=your_api_key_here" > .env
     ```
 
+5. **Set up database (for CarbonCreditAgent)**
+
+    Add your PostgreSQL database URL to `.env`:
+    ```bash
+    echo "CARBON_MARKETPLACE_DATABASE_URL=postgresql://username:password@localhost:5432/carbon_credit_iot" >> .env
+    ```
+
 ---
 
 ## 🎬 Demo Walkthrough
@@ -103,6 +116,12 @@ python3 -m agents.host_agent.entry \
   --host localhost --port 10002
 ```
 
+**Start the Carbon Credit Agent**
+```bash
+python3 -m agents.carbon_credit_agent \
+  --host localhost --port 10003
+```
+
 **Launch the CLI (cmd.py)**
 ```bash
 python3 -m app.cmd.cmd --agent http://localhost:10002
@@ -115,6 +134,9 @@ Agent says: The current time is: 2025-05-05 14:23:10
 
 > Greet me
 Agent says: Good afternoon, friend! The golden sun dips low...
+
+> Find 100 carbon credits at best price
+Agent says: I found several carbon credit offers for you...
 ```
 
 ---
@@ -128,6 +150,7 @@ Agent says: Good afternoon, friend! The golden sun dips low...
 3. **Child Agents**:
    - TellTimeAgent returns the current time.
    - GreetingAgent calls TellTimeAgent then crafts a poetic greeting.
+   - CarbonCreditAgent negotiates carbon credit purchases from database marketplace.
 4. **JSON-RPC**: All communication uses A2A JSON-RPC 2.0 over HTTP via Starlette & Uvicorn.
 
 ---
