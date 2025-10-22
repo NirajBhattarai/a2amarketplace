@@ -10,6 +10,7 @@ import logging
 import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from decimal import Decimal
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -119,6 +120,40 @@ class CarbonCreditAgent:
                 logger.error(f"Error calculating negotiation: {e}")
                 return {"error": str(e)}
 
+        # --- Tool 3: buy_credits_with_hbar ---
+        async def buy_credits_with_hbar(
+            company_id: int,
+            amount: float,
+            user_account: str = "0.0.123456",
+            payment_tx_id: Optional[str] = None,
+        ) -> Dict[str, Any]:
+            """
+            Record a purchase of carbon credits paid with HBAR. This simulates
+            payment by updating the database (deduct current_credit, add sold_credit)
+            and creating a row in credit_purchase.
+
+            Args:
+                company_id: Target company identifier
+                amount: Number of credits to purchase
+                user_account: Hedera account ID of buyer
+                payment_tx_id: Optional payment tx reference
+            """
+            try:
+                # Local import to avoid hard dependency if utilities not present
+                from a2abackend.utilities.carbon_marketplace.purchase import purchase_credits
+
+                success, message = purchase_credits(
+                    company_id=company_id,
+                    user_account=user_account,
+                    amount=Decimal(str(amount)),
+                    payment_tx_id=payment_tx_id,
+                )
+                status = "success" if success else "failed"
+                return {"status": status, "message": message}
+            except Exception as e:
+                logger.error(f"Error buying credits: {e}")
+                return {"status": "failed", "message": str(e)}
+
         # --- System instruction for the LLM ---
         system_instr = (
             "You are a Carbon Credit Negotiation Agent. Your role is to help users find "
@@ -126,11 +161,13 @@ class CarbonCreditAgent:
             "You have two main tools:\n"
             "1) search_carbon_credits(credit_amount, max_price_per_credit, min_price_per_credit, payment_method) "
             "→ searches the database for available carbon credit offers\n"
-            "2) calculate_negotiation(offers, requested_credits) → calculates the best deal from available offers\n\n"
+            "2) calculate_negotiation(offers, requested_credits) → calculates the best deal from available offers\n"
+            "3) buy_credits_with_hbar(company_id, amount, user_account, payment_tx_id) → records a purchase paid with HBAR\n\n"
             "When a user requests carbon credits:\n"
             "1. First, use search_carbon_credits to find available offers\n"
             "2. Then, use calculate_negotiation to determine the best deal\n"
-            "3. Present the results in a clear, helpful format\n\n"
+            "3. If the user confirms, call buy_credits_with_hbar to record the simulated purchase\n"
+            "4. Present the results in a clear, helpful format\n\n"
             "Always be helpful, transparent about pricing, and provide recommendations "
             "for the best carbon credit deals."
         )
@@ -139,6 +176,7 @@ class CarbonCreditAgent:
         tools = [
             FunctionTool(search_carbon_credits),
             FunctionTool(calculate_negotiation),
+            FunctionTool(buy_credits_with_hbar),
         ]
 
         # Finally, create and return the LlmAgent with everything wired up
