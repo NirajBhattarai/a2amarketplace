@@ -15,7 +15,7 @@ export class AgentDiscovery {
   private discoveryInterval: NodeJS.Timeout | null = null;
   private readonly checkInterval = 30000; // 30 seconds
 
-  constructor(private defaultPorts: number[] = [10000, 10001, 10002]) {}
+  constructor(private defaultPorts: number[] = [10000, 10001, 10002, 10003]) {}
 
   /**
    * Discover agents on default ports

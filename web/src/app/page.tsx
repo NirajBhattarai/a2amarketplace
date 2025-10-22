@@ -5,9 +5,11 @@ import { AgentChat } from '../components/AgentChat';
 import { AgentSelector } from '../components/AgentSelector';
 import { ServerStatus } from '../components/ServerStatus';
 import { AgentSettings } from '../components/AgentSettings';
+import { PaymentInterface } from '../components/PaymentInterface';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'status' | 'settings'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'status' | 'settings' | 'payments'>('chat');
+  const [paymentMessage, setPaymentMessage] = useState<string>('');
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -18,8 +20,8 @@ export default function Home() {
           </h1>
           <p className="text-lg text-gray-600 max-w-4xl mx-auto">
             Complete app→client→server architecture implementation. 
-            Interact with TellTimeAgent, GreetingAgent, and OrchestratorAgent through the A2A protocol.
-            Select an agent, monitor server status, and configure connections.
+            Interact with TellTimeAgent, GreetingAgent, CarbonCreditAgent, WalletBalanceAgent, PaymentAgent, and OrchestratorAgent through the A2A protocol.
+            Select an agent, monitor server status, and configure connections. Execute real blockchain transactions across Hedera, Ethereum, and Polygon networks.
           </p>
         </div>
 
@@ -56,6 +58,16 @@ export default function Home() {
             >
               ⚙️ Settings
             </button>
+            <button
+              onClick={() => setActiveTab('payments')}
+              className={`px-6 py-2 rounded-md transition-colors ${
+                activeTab === 'payments'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              💰 Payments
+            </button>
           </div>
         </div>
 
@@ -63,7 +75,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           {activeTab === 'chat' && (
             <div className="max-w-4xl mx-auto">
-              <AgentChat />
+              <AgentChat externalMessage={paymentMessage} />
             </div>
           )}
 
@@ -97,6 +109,17 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'payments' && (
+            <div className="max-w-4xl mx-auto">
+              <PaymentInterface onSendMessage={(message) => {
+                setPaymentMessage(message);
+                setActiveTab('chat'); // Switch to chat tab to show the message
+                // Clear the message after a short delay to prevent re-sending
+                setTimeout(() => setPaymentMessage(''), 100);
+              }} />
             </div>
           )}
         </div>

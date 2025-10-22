@@ -9,7 +9,11 @@ interface Message {
   timestamp: Date;
 }
 
-export function AgentChat() {
+interface AgentChatProps {
+  externalMessage?: string;
+}
+
+export function AgentChat({ externalMessage }: AgentChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +28,13 @@ export function AgentChat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Handle external messages from payment interface
+  useEffect(() => {
+    if (externalMessage && externalMessage.trim()) {
+      sendMessage(externalMessage);
+    }
+  }, [externalMessage]);
 
   const sendMessage = async (message: string) => {
     if (!message.trim() || isLoading) return;
@@ -136,10 +147,28 @@ export function AgentChat() {
                 Greet me
               </button>
               <button
-                onClick={() => handleQuickMessage("Hello")}
+                onClick={() => handleQuickMessage("Find 100 carbon credits at best price")}
+                className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+              >
+                🌱 Find Carbon Credits
+              </button>
+              <button
+                onClick={() => handleQuickMessage("Buy 500 carbon credits for maximum $15 per credit")}
+                className="px-4 py-2 bg-teal-100 text-teal-700 rounded-lg hover:bg-teal-200 transition-colors"
+              >
+                💰 Negotiate Credits
+              </button>
+              <button
+                onClick={() => handleQuickMessage("Send 0.001 HBAR to account 0.0.123456")}
                 className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
               >
-                Hello
+                💸 Test HBAR Payment
+              </button>
+              <button
+                onClick={() => handleQuickMessage("Check balance for wallet 0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6")}
+                className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+              >
+                💳 Check Wallet Balance
               </button>
             </div>
           </div>

@@ -8,6 +8,9 @@ export const AGENT_CONFIG = {
     ORCHESTRATOR: 'http://localhost:10002',
     TELL_TIME: 'http://localhost:10000', 
     GREETING: 'http://localhost:10001',
+    CARBON_CREDIT: 'http://localhost:10003',
+    WALLET_BALANCE: 'http://localhost:10004',
+    PAYMENT: 'http://localhost:10005',
   },
   
   // Default session configuration

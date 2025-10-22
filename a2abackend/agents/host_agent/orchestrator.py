@@ -22,6 +22,9 @@ load_dotenv()
 from google.adk.agents.llm_agent import LlmAgent
 # LlmAgent: core class to define a Gemini-powered AI agent
 
+from google.adk.tools.function_tool import FunctionTool
+# FunctionTool: wraps Python functions as LLM tools
+
 from google.adk.sessions import InMemorySessionService
 # InMemorySessionService: stores session state in memory (for simple demos)
 
@@ -114,8 +117,8 @@ class OrchestratorAgent:
             description="Delegates user queries to child A2A agents based on intent.",
             instruction=self._root_instruction,  # Function providing system prompt text
             tools=[
-                self._list_agents,               # Tool 1: list available child agents
-                self._delegate_task             # Tool 2: call a child agent
+                FunctionTool(self._list_agents),               # Tool 1: list available child agents
+                FunctionTool(self._delegate_task)             # Tool 2: call a child agent
             ],
         )
 
@@ -128,8 +131,8 @@ class OrchestratorAgent:
         agent_list = "\n".join(f"- {name}" for name in self.connectors)
         return (
             "You are an orchestrator with two tools:\n"
-            "1) list_agents() -> list available child agents\n"
-            "2) delegate_task(agent_name, message) -> call that agent\n"
+            "1) _list_agents() -> list available child agents\n"
+            "2) _delegate_task(agent_name, message) -> call that agent\n"
             "Use these tools to satisfy the user. Do not hallucinate.\n"
             "Available agents:\n" + agent_list
         )
