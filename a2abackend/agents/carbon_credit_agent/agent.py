@@ -28,6 +28,8 @@ from google.adk.tools.function_tool import FunctionTool
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
+import json
+import urllib.request
 
 # Create a module-level logger
 logger = logging.getLogger(__name__)
@@ -65,6 +67,89 @@ class CarbonCreditAgent:
 
         # Database connection setup
         self.db_connection = self._setup_database_connection()
+
+    async def get_company_details(
+        self,
+        company_name: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Get company details for carbon credit purchase:
+        1) Resolve company by name (with fuzzy matching)
+        2) Return company details for PaymentAgent to use
+        """
+        try:
+            # Resolve company details
+            comp_id = 0
+            comp_wallet = ""
+            price_per_credit = 0.0
+            company_name_resolved = ""
+            
+            try:
+                try:
+                    from a2abackend.utilities.carbon_marketplace.db import fetch_all  # type: ignore
+                except Exception:
+                    from utilities.carbon_marketplace.db import fetch_all  # type: ignore
+                
+                base_query = (
+                    "SELECT c.company_id, c.company_name, c.wallet_address, cc.offer_price "
+                    "FROM company c INNER JOIN company_credit cc ON c.company_id = cc.company_id "
+                )
+
+                rows = []
+                if company_name:
+                    # Normalize provided name
+                    name = company_name.strip()
+                    # 1) Try exact ILIKE match
+                    q1 = base_query + "WHERE c.company_name ILIKE %s ORDER BY cc.offer_price ASC LIMIT 1"
+                    rows = fetch_all(q1, [name])
+                    # 2) Try contains match if not found
+                    if not rows:
+                        q2 = base_query + "WHERE c.company_name ILIKE %s ORDER BY cc.offer_price ASC LIMIT 1"
+                        rows = fetch_all(q2, [f"%{name}%"]) 
+                    # 3) Try token-wise AND contains for robustness
+                    if not rows:
+                        tokens = [t for t in name.split() if t]
+                        if tokens:
+                            where = " AND ".join(["c.company_name ILIKE %s" for _ in tokens])
+                            q3 = base_query + f"WHERE {where} ORDER BY cc.offer_price ASC LIMIT 1"
+                            rows = fetch_all(q3, [f"%{t}%" for t in tokens])
+                    # 4) Fuzzy match using difflib if still not found
+                    if not rows:
+                        import difflib
+                        all_rows = fetch_all(base_query + "ORDER BY cc.offer_price ASC", [])
+                        candidates = [(r, difflib.SequenceMatcher(a=name.lower(), b=str(r.get("company_name","" )).lower()).ratio()) for r in all_rows]
+                        candidates.sort(key=lambda x: x[1], reverse=True)
+                        if candidates and candidates[0][1] >= 0.6:  # threshold
+                            rows = [candidates[0][0]]
+                else:
+                    # No name given: pick cheapest
+                    q4 = base_query + "ORDER BY cc.offer_price ASC LIMIT 1"
+                    rows = fetch_all(q4, [])
+
+                if rows:
+                    row = rows[0]
+                    comp_id = int(row["company_id"])  # type: ignore[index]
+                    comp_wallet = str(row["wallet_address"])  # type: ignore[index]
+                    price_per_credit = float(row["offer_price"])  # type: ignore[index]
+                    company_name_resolved = str(row["company_name"])  # type: ignore[index]
+                    
+            except Exception as e:
+                logger.error(f"Company lookup failed: {e}")
+
+            if comp_id == 0 or not comp_wallet or price_per_credit <= 0.0:
+                return {"status": "failed", "message": "Unable to resolve company details from DB"}
+
+            return {
+                "status": "success",
+                "company_id": comp_id,
+                "company_name": company_name_resolved,
+                "wallet_address": comp_wallet,
+                "price_per_credit": price_per_credit,
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in get_company_details: {e}")
+            return {"status": "failed", "message": str(e)}
 
     def _build_agent(self) -> LlmAgent:
         """
@@ -138,59 +223,26 @@ class CarbonCreditAgent:
                 logger.error(f"Error listing offers: {e}")
                 return []
 
-        # --- Tool 3: buy_credits_with_hbar ---
-        async def buy_credits_with_hbar(
-            company_id: int,
-            amount: float,
-            user_account: str = "0.0.123456",
-            payment_tx_id: Optional[str] = None,
-        ) -> Dict[str, Any]:
-            """
-            Record a purchase of carbon credits paid with HBAR. This simulates
-            payment by updating the database (deduct current_credit, add sold_credit)
-            and creating a row in credit_purchase.
-
-            Args:
-                company_id: Target company identifier
-                amount: Number of credits to purchase
-                user_account: Hedera account ID of buyer
-                payment_tx_id: Optional payment tx reference
-            """
-            try:
-                # Local import to avoid hard dependency if utilities not present
-                from a2abackend.utilities.carbon_marketplace.purchase import purchase_credits
-
-                success, message = purchase_credits(
-                    company_id=company_id,
-                    user_account=user_account,
-                    amount=Decimal(str(amount)),
-                    payment_tx_id=payment_tx_id,
-                )
-                status = "success" if success else "failed"
-                return {"status": status, "message": message}
-            except Exception as e:
-                logger.error(f"Error buying credits: {e}")
-                return {"status": "failed", "message": str(e)}
 
         # --- System instruction for the LLM ---
         system_instr = (
             "You are a Carbon Credit Negotiation Agent. Your role is to help users find "
-            "and negotiate the best carbon credit deals from a marketplace database.\n\n"
-            "You have these tools:\n"
-            "1) search_carbon_credits(credit_amount, max_price_per_credit, min_price_per_credit, payment_method) "
-            "→ searches the database for available carbon credit offers\n"
-            "2) calculate_negotiation(offers, requested_credits) → calculates the best deal from available offers\n"
-            "3) list_offers(limit) → returns the current top offers when the user asks what is for sale\n"
-            "3) buy_credits_with_hbar(company_id, amount, user_account, payment_tx_id) → records a purchase paid with HBAR\n\n"
-            "When a user requests carbon credits:\n"
-            "1. Supported payment method is HBAR only. Do NOT ask the user to choose a payment method; assume HBAR by default.\n"
-            "2. If they ask to see what's available (e.g., 'what's for sale', 'show offers', 'provide carbon credit that is at sell'), call list_offers immediately without follow-ups.\n"
-            "3. Otherwise, use search_carbon_credits to find available offers based on provided constraints.\n"
-            "2. Then, use calculate_negotiation to determine the best deal\n"
-            "3. If the user confirms, call buy_credits_with_hbar to record the simulated purchase\n"
-            "4. Maintain conversation context across messages (use the existing session) and present results in a clear, helpful format.\n\n"
-            "Always be helpful, transparent about pricing, and provide recommendations "
-            "for the best carbon credit deals."
+            "and buy carbon credits (HBAR-only) from a marketplace database.\n\n"
+            "Tools (HBAR-only):\n"
+            "1) search_carbon_credits(credit_amount, max_price_per_credit, min_price_per_credit, payment_method) → search offers\n"
+            "2) calculate_negotiation(offers, requested_credits) → compute best deal\n"
+            "3) list_offers(limit) → show current top offers\n"
+            "4) get_company_details(company_name=?) → get company details for PaymentAgent to use\n\n"
+            "Rules:\n"
+            "- You provide company and credit information only. Payment processing is handled by PaymentAgent.\n"
+            "- For company lookups, use get_company_details(company_name) to resolve company details.\n"
+            "- For discovery queries, use search_carbon_credits or list_offers.\n"
+            "- When user wants to buy credits, provide company details and direct them to PaymentAgent.\n"
+            "- Maintain conversation context across messages and present concise, clear results.\n\n"
+            "Examples:\n"
+            "User: 'get company details for bluesky' → Call: get_company_details(company_name='bluesky')\n"
+            "User: 'find cheapest company' → Call: get_company_details()\n"
+            "User: 'list available offers' → Call: list_offers()\n"
         )
 
         # Wrap our Python functions into ADK FunctionTool objects
@@ -198,7 +250,7 @@ class CarbonCreditAgent:
             FunctionTool(search_carbon_credits),
             FunctionTool(calculate_negotiation),
             FunctionTool(list_offers),
-            FunctionTool(buy_credits_with_hbar),
+            FunctionTool(self.get_company_details),
         ]
 
         # Finally, create and return the LlmAgent with everything wired up

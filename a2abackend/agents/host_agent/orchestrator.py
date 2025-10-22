@@ -121,7 +121,6 @@ class OrchestratorAgent:
             tools=[
                 FunctionTool(self._list_agents),               # Tool 1: list available child agents
                 FunctionTool(self._delegate_task),             # Tool 2: call a child agent
-                FunctionTool(self._buy_credits_hbar)           # Tool 3: pay with HBAR then record purchase
             ],
         )
 
@@ -130,22 +129,42 @@ class OrchestratorAgent:
         System prompt function: returns instruction text for the LLM,
         including which tools it can use and a list of child agents.
         """
-        # Build a bullet-list of agent names
+        # Build dynamic agent summary and delegation rules
+        names = set(self.connectors.keys())
+        lines: list[str] = []
+
+        lines.append("You are an Orchestrator. Use tools to delegate user intents to child agents.\n")
+        lines.append("Tools:\n- _list_agents() -> list available child agents\n- _delegate_task(agent_name, message) -> send a text command to that agent\n")
+        lines.append("IMPORTANT: For carbon credit purchases, ALWAYS delegate to PaymentAgent using _delegate_task('PaymentAgent', 'buy_carbon_credits(amount=X)') - do NOT ask for company names, let PaymentAgent handle it.\n")
+
+        # Agent-specific routing guidance
+        lines.append("Routing rules (auto-choose agent; do not ask for data that child agents can derive):")
+        if "TellTimeAgent" in names:
+            lines.append("- Time requests -> TellTimeAgent (e.g., 'What time is it?').")
+        if "GreetingAgent" in names:
+            lines.append("- Greetings/salutations -> GreetingAgent.")
+        if "WalletBalanceAgent" in names:
+            lines.append("- 'Check my wallet balance' or addresses -> WalletBalanceAgent. It uses public testnet RPCs; no API keys required.")
+        if "PaymentAgent" in names:
+            lines.append("- Direct HBAR/ETH/MATIC transfers -> PaymentAgent (text commands like 'Send 1 HBAR to account 0.0.123').")
+            lines.append("- Carbon credit purchases -> PaymentAgent:")
+            lines.append("  * When user says 'buy N credits' or 'purchase credits' -> delegate to PaymentAgent with 'buy_carbon_credits(amount=N)' (optionally include company_name).")
+            lines.append("  * PaymentAgent will get company details from CarbonCreditAgent, process payment, and record purchase.")
+        if "CarbonCreditAgent" in names:
+            lines.append("- Carbon credits marketplace info -> CarbonCreditAgent:")
+            lines.append("  * Discovery: 'Find 100 carbon credits at best price' -> delegate text unchanged.")
+            lines.append("  * Quick list: 'show offers' -> delegate 'list_offers(limit=10)'.")
+            lines.append("  * Company details: 'get company details for X' -> delegate 'get_company_details(company_name=X)'.")
+
+        lines.append("\nGeneral rules:")
+        lines.append("- Maintain conversation context across turns using the same session.")
+        lines.append("- Prefer not to re-ask for details that a child agent can compute or look up (DB, discovery, or defaults).")
+
+        # Append discovered agents list
         agent_list = "\n".join(f"- {name}" for name in self.connectors)
-        return (
-            "You are an orchestrator with tools:\n"
-            "- _list_agents() -> list available child agents\n"
-            "- _delegate_task(agent_name, message) -> call that agent with a text command\n"
-            "- _buy_credits_hbar(credits, company_id=0, company_name='', company_wallet='', price_per_credit=0.0, buyer_account='', memo_prefix='Carbon credits purchase') ->\n"
-            "  pay HBAR via PaymentAgent and record purchase with CarbonCreditAgent.\n\n"
-            "Rules for carbon credit flow:\n"
-            "- Supported payment is HBAR only.\n"
-            "- If the user says 'buy' or 'go and pay', DO NOT prompt for buyer account or company wallet.\n"
-            "  Auto-resolve company (id, wallet, price) from marketplace DB and use the PaymentAgent buyer account\n"
-            "  from environment (OPERATOR_ID/HEDERA_ACCOUNT_ID). Proceed to pay then record the purchase.\n"
-            "- Maintain conversation context across turns.\n\n"
-            "Available agents:\n" + agent_list
-        )
+        lines.append("\nDiscovered agents:\n" + agent_list)
+
+        return "\n".join(lines)
 
     def _list_agents(self) -> list[str]:
         """
@@ -184,93 +203,6 @@ class OrchestratorAgent:
             return child_task.history[-1].parts[0].text
         return ""
 
-    async def _buy_credits_hbar(
-        self,
-        credits: float,
-        company_id: int = 0,
-        company_name: str = "",
-        company_wallet: str = "",
-        price_per_credit: float = 0.0,
-        buyer_account: str = "",
-        memo_prefix: str = "Carbon credits purchase"
-    ) -> str:
-        """
-        Orchestrate an end-to-end HBAR purchase:
-        1) Pay HBAR to company via PaymentAgent
-        2) Record purchase with CarbonCreditAgent (updates DB)
-        """
-        # Resolve connectors
-        if "PaymentAgent" not in self.connectors:
-            raise ValueError("PaymentAgent not available")
-        if "CarbonCreditAgent" not in self.connectors:
-            raise ValueError("CarbonCreditAgent not available")
-
-        payment = self.connectors["PaymentAgent"]
-        carbon = self.connectors["CarbonCreditAgent"]
-
-        # If details missing, look up from DB utilities
-        if company_id == 0 or not company_wallet or price_per_credit <= 0.0:
-            try:
-                try:
-                    from a2abackend.utilities.carbon_marketplace.db import fetch_all  # type: ignore
-                except ImportError:
-                    from ...utilities.carbon_marketplace.db import fetch_all  # type: ignore
-                params = []
-                filters = []
-                if company_name:
-                    filters.append("c.company_name ILIKE %s")
-                    params.append(f"%{company_name}%")
-                query = (
-                    "SELECT c.company_id, c.company_name, c.wallet_address, cc.offer_price "
-                    "FROM company c INNER JOIN company_credit cc ON c.company_id = cc.company_id "
-                )
-                if filters:
-                    query += "WHERE " + " AND ".join(filters) + " "
-                query += "ORDER BY cc.offer_price ASC LIMIT 1"
-                rows = fetch_all(query, params)
-                if rows:
-                    row = rows[0]
-                    company_id = company_id or int(row["company_id"])  # type: ignore[index]
-                    company_wallet = company_wallet or str(row["wallet_address"])  # type: ignore[index]
-                    price_per_credit = price_per_credit or float(row["offer_price"])  # type: ignore[index]
-            except Exception as e:
-                logger.error(f"DB lookup failed: {e}")
-
-        # Final compute total HBAR and memo
-        total_hbar = float(credits) * float(price_per_credit)
-        memo = f"{memo_prefix} company={company_id} credits={credits}"
-
-        # Session continuity
-        session_id = str(uuid.uuid4())
-
-        # 1) Pay with PaymentAgent (text command)
-        pay_text = (
-            f"Send {total_hbar} HBAR to account {company_wallet} with memo '{memo}'"
-        )
-        pay_task = await payment.send_task(pay_text, session_id)
-        tx_text = pay_task.history[-1].parts[0].text if pay_task.history else ""
-
-        # Try to extract a tx id; if not found, reuse memo as fallback
-        tx_id = None
-        for token in tx_text.replace("\n", " ").split(" "):
-            if "tx" in token.lower() or "hedera_" in token.lower():
-                tx_id = token.strip(".,;:")
-                break
-        if not tx_id:
-            tx_id = memo
-
-        # 2) Record purchase with CarbonCreditAgent
-        buyer = buyer_account or os.getenv("OPERATOR_ID") or os.getenv("HEDERA_ACCOUNT_ID") or "0.0.123456"
-        record_text = (
-            f"buy_credits_with_hbar(company_id={company_id}, amount={credits}, user_account='{buyer}', payment_tx_id='{tx_id}')"
-        )
-        record_task = await carbon.send_task(record_text, session_id)
-        record_reply = record_task.history[-1].parts[0].text if record_task.history else ""
-
-        return (
-            f"Paid {total_hbar} HBAR to {company_wallet} (tx: {tx_id}). "
-            f"Recorded purchase: {record_reply}"
-        )
 
     async def invoke(self, query: str, session_id: str) -> str:
         """

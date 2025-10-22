@@ -27,6 +27,8 @@ from google.adk.tools.function_tool import FunctionTool
 import requests
 import json
 import os
+import uuid
+import urllib.request
 from decimal import Decimal
 
 # Create a module-level logger
@@ -306,13 +308,14 @@ class PaymentAgent:
         system_instr = (
             "You are a Multi-Network Payment Agent. Your role is to help users "
             "send payments across Hedera, Ethereum, and Polygon networks.\n\n"
-            "You have six main tools:\n"
+            "You have seven main tools:\n"
             "1) transfer_hbar(destination_account, amount, memo) → sends HBAR on Hedera network\n"
             "2) transfer_eth(destination_address, amount, gas_limit) → sends ETH on Ethereum network\n"
             "3) transfer_matic(destination_address, amount, gas_limit) → sends MATIC on Polygon network\n"
             "4) validate_payment_address(address, network) → validates address format\n"
             "5) get_transaction_status(transaction_id, network) → checks transaction status\n"
-            "6) get_hedera_balance(account_id) → gets HBAR balance for Hedera account\n\n"
+            "6) get_hedera_balance(account_id) → gets HBAR balance for Hedera account\n"
+            "7) buy_carbon_credits(amount, company_name) → purchases carbon credits with HBAR\n\n"
             "Supported networks:\n"
             "- Hedera: Use format 0.0.123456 (native HBAR token)\n"
             "- Ethereum: Use format 0x... (native ETH + ERC20 tokens)\n"
@@ -322,6 +325,11 @@ class PaymentAgent:
             "2. Then, execute the appropriate transfer based on network\n"
             "3. Provide transaction confirmation and status\n"
             "4. Offer to check transaction status if needed\n\n"
+            "For carbon credit purchases:\n"
+            "- Use buy_carbon_credits(amount, company_name) function\n"
+            "- If no company name provided, the function will automatically pick the cheapest available\n"
+            "- The function handles company resolution, payment processing, and database recording\n"
+            "- Always call buy_carbon_credits directly for carbon credit purchase requests\n\n"
             "Always be helpful, provide clear network information, and confirm "
             "transactions with transaction IDs when available."
         )
@@ -334,6 +342,7 @@ class PaymentAgent:
             FunctionTool(validate_payment_address),
             FunctionTool(get_transaction_status),
             FunctionTool(get_hedera_balance),
+            FunctionTool(self.buy_carbon_credits),
         ]
 
         # Finally, create and return the LlmAgent with everything wired up
@@ -344,6 +353,115 @@ class PaymentAgent:
             instruction=system_instr,
             tools=tools,
         )
+
+    async def buy_carbon_credits(
+        self,
+        amount: float,
+        company_name: str = ""
+    ) -> Dict[str, Any]:
+            """
+            Purchase carbon credits by:
+            1) Getting company details from CarbonCreditAgent via Orchestrator
+            2) Processing HBAR payment to company
+            3) Recording purchase in database
+            """
+            try:
+                # 1) Get company details directly from database
+                try:
+                    from utilities.carbon_marketplace.db import fetch_all
+                    
+                    base_query = (
+                        "SELECT c.company_id, c.company_name, c.wallet_address, cc.offer_price "
+                        "FROM company c INNER JOIN company_credit cc ON c.company_id = cc.company_id "
+                    )
+                    
+                    rows = []
+                    if company_name:
+                        # Normalize provided name
+                        name = company_name.strip()
+                        # Try exact ILIKE match
+                        q1 = base_query + "WHERE c.company_name ILIKE %s ORDER BY cc.offer_price ASC LIMIT 1"
+                        rows = fetch_all(q1, [name])
+                        # Try contains match if not found
+                        if not rows:
+                            q2 = base_query + "WHERE c.company_name ILIKE %s ORDER BY cc.offer_price ASC LIMIT 1"
+                            rows = fetch_all(q2, [f"%{name}%"]) 
+                        # Try fuzzy match if still not found
+                        if not rows:
+                            import difflib
+                            all_rows = fetch_all(base_query + "ORDER BY cc.offer_price ASC", [])
+                            candidates = [(r, difflib.SequenceMatcher(a=name.lower(), b=str(r.get("company_name","" )).lower()).ratio()) for r in all_rows]
+                            candidates.sort(key=lambda x: x[1], reverse=True)
+                            if candidates and candidates[0][1] >= 0.6:  # threshold
+                                rows = [candidates[0][0]]
+                    else:
+                        # No name given: pick cheapest
+                        q4 = base_query + "ORDER BY cc.offer_price ASC LIMIT 1"
+                        rows = fetch_all(q4, [])
+                    
+                    if not rows:
+                        return {"status": "failed", "message": "No company found"}
+                    
+                    row = rows[0]
+                    comp_id = int(row["company_id"])
+                    comp_wallet = str(row["wallet_address"])
+                    price_per_credit = float(row["offer_price"])
+                    company_name_resolved = str(row["company_name"])
+                    
+                except Exception as e:
+                    logger.error(f"Failed to get company details: {e}")
+                    return {"status": "failed", "message": "Could not get company details"}
+
+                # 2) Process HBAR payment
+                total_hbar = float(amount) * float(price_per_credit)
+                memo = f"Carbon credits purchase company={comp_id} credits={amount}"
+                
+                # Use existing Hedera transfer logic
+                payment_result = await self._execute_hedera_transfer(
+                    destination_account=comp_wallet,
+                    amount=total_hbar,
+                    memo=memo
+                )
+                
+                if not payment_result.get("success", False):
+                    return {"status": "failed", "message": "Payment failed"}
+
+                # 3) Record purchase in database
+                try:
+                    from utilities.carbon_marketplace.purchase import purchase_credits
+                    buyer = (
+                        os.getenv("OPERATOR_ID")
+                        or os.getenv("HEDERA_ACCOUNT_ID")
+                        or "0.0.123456"
+                    )
+                    success, message = purchase_credits(
+                        company_id=comp_id,
+                        user_account=buyer,
+                        amount=Decimal(str(amount)),
+                        payment_tx_id=payment_result.get("transaction_id", memo),
+                    )
+                    
+                    if success:
+                        return {
+                            "status": "success",
+                            "message": f"Successfully purchased {amount} carbon credits for {total_hbar} HBAR",
+                            "company_id": comp_id,
+                            "wallet": comp_wallet,
+                            "price_per_credit": price_per_credit,
+                            "amount": amount,
+                            "total_hbar": total_hbar,
+                            "transaction_id": payment_result.get("transaction_id", memo),
+                        }
+                    else:
+                        return {"status": "failed", "message": f"Database recording failed: {message}"}
+                        
+                except Exception as e:
+                    logger.error(f"Database recording failed: {e}")
+                    return {"status": "failed", "message": f"Database recording failed: {str(e)}"}
+
+            except Exception as e:
+                logger.error(f"Error in buy_carbon_credits: {e}")
+                return {"status": "failed", "message": str(e)}
 
     def _validate_address_format(self, address: str, network: str) -> bool:
         """
