@@ -424,7 +424,9 @@ class PaymentAgent:
                 )
                 
                 if not payment_result.get("success", False):
-                    return {"status": "failed", "message": "Payment failed"}
+                    # Use the specific error message from the payment result
+                    error_message = payment_result.get("error", "Payment failed")
+                    return {"status": "failed", "message": error_message}
 
                 # 3) Record purchase in database
                 try:
@@ -547,13 +549,36 @@ class PaymentAgent:
             
         except Exception as e:
             logger.error(f"Error executing Hedera transfer: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "network": "Hedera Network",
-                "destination": destination_account,
-                "amount": amount
-            }
+            
+            # Check for specific error types and provide user-friendly messages
+            error_str = str(e)
+            if "INSUFFICIENT_PAYER_BALANCE" in error_str:
+                return {
+                    "success": False,
+                    "error": "Insufficient HBAR balance in your account. Please add more HBAR to your testnet account to complete this transaction.",
+                    "error_type": "insufficient_balance",
+                    "network": "Hedera Network",
+                    "destination": destination_account,
+                    "amount": amount,
+                    "suggestion": "Visit the Hedera testnet faucet to get free testnet HBAR"
+                }
+            elif "INVALID_ACCOUNT_ID" in error_str:
+                return {
+                    "success": False,
+                    "error": "Invalid destination account ID. Please check the account address.",
+                    "error_type": "invalid_account",
+                    "network": "Hedera Network",
+                    "destination": destination_account,
+                    "amount": amount
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "network": "Hedera Network",
+                    "destination": destination_account,
+                    "amount": amount
+                }
 
     async def _get_hedera_balance(self, account_id: Optional[str] = None) -> Dict[str, Any]:
         """

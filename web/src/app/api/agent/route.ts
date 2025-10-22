@@ -22,11 +22,14 @@ export async function POST(request: NextRequest) {
     
     console.log('🎯 Target URL:', targetUrl);
     console.log('📝 Message:', message);
-    console.log('🆔 Session ID:', sessionId);
+    console.log('🆔 Original Session ID:', sessionId);
 
     // Generate a unique task ID (similar to Python's uuid4().hex)
     const taskId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const requestId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    // Always generate a unique session ID to prevent conflicts
+    const uniqueSessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     
     // Create the JSON-RPC payload exactly like the Python app does
     const payload = {
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
       method: "tasks/send",
       params: {
         id: taskId,
-        sessionId: sessionId || Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+        sessionId: uniqueSessionId,
         message: {
           role: "user",
           parts: [
@@ -48,6 +51,7 @@ export async function POST(request: NextRequest) {
       }
     };
 
+    console.log('🆔 Unique Session ID:', uniqueSessionId);
     console.log('📤 Sending JSON-RPC request to:', targetUrl);
     console.log('Payload:', JSON.stringify(payload, null, 2));
 
