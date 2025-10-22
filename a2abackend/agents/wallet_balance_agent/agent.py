@@ -9,6 +9,11 @@
 import logging
 import re
 from typing import List, Dict, Any, Optional
+from utilities.network_rpc import (
+    get_sepolia_rpc,
+    get_polygon_mumbai_rpc,
+    get_hedera_mirror_base,
+)
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -209,63 +214,88 @@ class WalletBalanceAgent:
 
     async def _get_hedera_balance(self, wallet_address: str) -> Dict[str, Any]:
         """
-        🌐 Get Hedera network balance (mock implementation).
+        🌐 Get Hedera testnet balance via public mirror node (no API key).
         """
-        # Mock implementation - in production, use Hedera SDK
+        base = get_hedera_mirror_base()
+        import urllib.request, json as _json
+        hbar = 0.0
+        try:
+            with urllib.request.urlopen(f"{base}/api/v1/accounts/{wallet_address}", timeout=10) as resp:
+                data = _json.loads(resp.read().decode("utf-8"))
+                tinybars = int(data.get("balance", {}).get("balance", 0))
+                hbar = tinybars / 100_000_000
+        except Exception as e:
+            logger.error(f"Hedera mirror query failed: {e}")
+
         return {
-            "network": "Hedera Network",
-            "native_balance": {
-                "token": "HBAR",
-                "balance": "1000.0",
-                "usd_value": 50.0
-            },
-            "total_usd_value": 50.0,
+            "network": "Hedera Testnet",
+            "native_balance": {"token": "HBAR", "balance": f"{hbar:.8f}", "usd_value": 0.0},
+            "token_balances": [],
+            "total_usd_value": 0.0,
             "status": "success"
         }
 
     async def _get_ethereum_balance(self, wallet_address: str) -> Dict[str, Any]:
         """
-        🔷 Get Ethereum network balance (mock implementation).
+        🔷 Get Ethereum Sepolia balance via public RPC (no API key).
         """
-        # Mock implementation - in production, use Web3.py or ethers.js
+        rpc = get_sepolia_rpc()
+        balance_eth = 0.0
+        if rpc:
+            try:
+                import urllib.request, json as _json
+                payload = _json.dumps({
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "eth_getBalance",
+                    "params": [wallet_address, "latest"],
+                }).encode("utf-8")
+                req = urllib.request.Request(rpc, data=payload, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = _json.loads(resp.read().decode("utf-8"))
+                    if "result" in data and isinstance(data["result"], str):
+                        wei = int(data["result"], 16)
+                        balance_eth = wei / 1e18
+            except Exception as e:
+                logger.error(f"Sepolia RPC query failed: {e}")
+
         return {
-            "network": "Ethereum Mainnet",
-            "native_balance": {
-                "token": "ETH",
-                "balance": "2.5",
-                "usd_value": 5000.0
-            },
-            "token_balances": [
-                {
-                    "token": "USDC",
-                    "balance": "1000.0",
-                    "usd_value": 1000.0
-                }
-            ],
-            "total_usd_value": 6000.0,
+            "network": "Ethereum Sepolia",
+            "native_balance": {"token": "ETH", "balance": f"{balance_eth:.8f}", "usd_value": 0.0},
+            "token_balances": [],
+            "total_usd_value": 0.0,
             "status": "success"
         }
 
     async def _get_polygon_balance(self, wallet_address: str) -> Dict[str, Any]:
         """
-        🔺 Get Polygon network balance (mock implementation).
+        🔺 Get Polygon Mumbai balance via public RPC (no API key).
         """
-        # Mock implementation - in production, use Web3.py or ethers.js
+        rpc = get_polygon_mumbai_rpc()
+        balance_matic = 0.0
+        if rpc:
+            try:
+                import urllib.request, json as _json
+                payload = _json.dumps({
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "eth_getBalance",
+                    "params": [wallet_address, "latest"],
+                }).encode("utf-8")
+                req = urllib.request.Request(rpc, data=payload, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = _json.loads(resp.read().decode("utf-8"))
+                    if "result" in data and isinstance(data["result"], str):
+                        wei = int(data["result"], 16)
+                        balance_matic = wei / 1e18
+            except Exception as e:
+                logger.error(f"Mumbai RPC query failed: {e}")
+
         return {
-            "network": "Polygon Network",
-            "native_balance": {
-                "token": "MATIC",
-                "balance": "500.0",
-                "usd_value": 400.0
-            },
-            "token_balances": [
-                {
-                    "token": "USDT",
-                    "balance": "500.0",
-                    "usd_value": 500.0
-                }
-            ],
-            "total_usd_value": 900.0,
+            "network": "Polygon Mumbai",
+            "native_balance": {"token": "MATIC", "balance": f"{balance_matic:.8f}", "usd_value": 0.0},
+            "token_balances": [],
+            "total_usd_value": 0.0,
             "status": "success"
         }
 
