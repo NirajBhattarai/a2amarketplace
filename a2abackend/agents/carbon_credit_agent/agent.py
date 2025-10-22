@@ -76,7 +76,7 @@ class CarbonCreditAgent:
             credit_amount: int,
             max_price_per_credit: Optional[float] = None,
             min_price_per_credit: Optional[float] = None,
-            payment_method: str = "USDC"
+            payment_method: str = "HBAR"
         ) -> List[Dict[str, Any]]:
             """
             Search for carbon credit offers in the database based on criteria.
@@ -85,7 +85,7 @@ class CarbonCreditAgent:
                 credit_amount: Number of credits requested
                 max_price_per_credit: Maximum price willing to pay per credit
                 min_price_per_credit: Minimum price per credit (optional)
-                payment_method: Preferred payment method (USDC, USDT, HBAR, BANK_TRANSFER)
+                payment_method: Ignored; default and only supported method is HBAR
             
             Returns:
                 List of available carbon credit offers
@@ -119,6 +119,24 @@ class CarbonCreditAgent:
             except Exception as e:
                 logger.error(f"Error calculating negotiation: {e}")
                 return {"error": str(e)}
+
+        # --- Tool 3: list_offers ---
+        async def list_offers(limit: int = 10) -> List[Dict[str, Any]]:
+            """
+            Return the current top available carbon credit offers without requiring
+            user parameters. Useful for "what's for sale" queries.
+            """
+            try:
+                # Use a tiny requested amount to include most sellers; no price filter
+                offers = await self._fetch_carbon_credit_offers(
+                    credit_amount=1,  # minimal threshold
+                    max_price=None,
+                    min_price=None,
+                )
+                return offers[:limit]
+            except Exception as e:
+                logger.error(f"Error listing offers: {e}")
+                return []
 
         # --- Tool 3: buy_credits_with_hbar ---
         async def buy_credits_with_hbar(
@@ -158,16 +176,19 @@ class CarbonCreditAgent:
         system_instr = (
             "You are a Carbon Credit Negotiation Agent. Your role is to help users find "
             "and negotiate the best carbon credit deals from a marketplace database.\n\n"
-            "You have two main tools:\n"
+            "You have these tools:\n"
             "1) search_carbon_credits(credit_amount, max_price_per_credit, min_price_per_credit, payment_method) "
             "→ searches the database for available carbon credit offers\n"
             "2) calculate_negotiation(offers, requested_credits) → calculates the best deal from available offers\n"
+            "3) list_offers(limit) → returns the current top offers when the user asks what is for sale\n"
             "3) buy_credits_with_hbar(company_id, amount, user_account, payment_tx_id) → records a purchase paid with HBAR\n\n"
             "When a user requests carbon credits:\n"
-            "1. First, use search_carbon_credits to find available offers\n"
+            "1. Supported payment method is HBAR only. Do NOT ask the user to choose a payment method; assume HBAR by default.\n"
+            "2. If they ask to see what's available (e.g., 'what's for sale', 'show offers', 'provide carbon credit that is at sell'), call list_offers immediately without follow-ups.\n"
+            "3. Otherwise, use search_carbon_credits to find available offers based on provided constraints.\n"
             "2. Then, use calculate_negotiation to determine the best deal\n"
             "3. If the user confirms, call buy_credits_with_hbar to record the simulated purchase\n"
-            "4. Present the results in a clear, helpful format\n\n"
+            "4. Maintain conversation context across messages (use the existing session) and present results in a clear, helpful format.\n\n"
             "Always be helpful, transparent about pricing, and provide recommendations "
             "for the best carbon credit deals."
         )
@@ -176,6 +197,7 @@ class CarbonCreditAgent:
         tools = [
             FunctionTool(search_carbon_credits),
             FunctionTool(calculate_negotiation),
+            FunctionTool(list_offers),
             FunctionTool(buy_credits_with_hbar),
         ]
 
