@@ -1,98 +1,151 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { agentDiscovery, DiscoveredAgent } from '../services/AgentDiscovery';
+
+interface Agent {
+  card: {
+    name: string;
+    description: string;
+    url: string;
+    version: string;
+    capabilities: {
+      streaming: boolean;
+      pushNotifications: boolean;
+      stateTransitionHistory: boolean;
+    };
+    skills: Array<{
+      id: string;
+      name: string;
+      description: string;
+      tags: string[];
+    }>;
+  };
+  isAvailable: boolean;
+}
 
 interface ServerStatusProps {
   className?: string;
 }
 
 export function ServerStatus({ className = '' }: ServerStatusProps) {
-  const [agents, setAgents] = useState<DiscoveredAgent[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [backendHealth, setBackendHealth] = useState<{ status: string; timestamp: string; backend?: string; error?: string } | null>(null);
 
   useEffect(() => {
-    // Start discovery
-    agentDiscovery.startDiscovery();
-    
-    // Initial load
-    loadAgents();
-    
-    // Set up periodic refresh
-    const interval = setInterval(() => {
-      loadAgents();
-    }, 10000); // Refresh every 10 seconds
-    
-    return () => {
-      clearInterval(interval);
-      agentDiscovery.stopDiscovery();
+    const fetchData = async () => {
+      try {
+        // Check backend health
+        const healthResponse = await fetch('/api/health');
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json();
+          setBackendHealth(healthData);
+        }
+
+        // Fetch agents
+        const response = await fetch('/api/agents');
+        if (response.ok) {
+          const data = await response.json();
+          setAgents(data.agents || []);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
+
+    fetchData();
   }, []);
 
-  const loadAgents = async () => {
-    try {
-      await agentDiscovery.refreshAgents();
-      setAgents(agentDiscovery.getAllAgents());
-      setLastUpdate(new Date());
-    } catch (error) {
-      console.error('Failed to load agents:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getStatusColor = (isAvailable: boolean) => {
-    return isAvailable ? 'text-green-600' : 'text-red-600';
-  };
-
-  const getStatusIcon = (isAvailable: boolean) => {
-    return isAvailable ? '🟢' : '🔴';
-  };
-
-  const stats = agentDiscovery.getStats();
+  const totalAgents = agents.length;
+  const availableAgents = agents.filter(agent => agent.isAvailable).length;
+  const unavailableAgents = totalAgents - availableAgents;
 
   return (
-    <div className={`bg-white rounded-lg shadow-lg p-6 ${className}`}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">Server Status</h3>
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm text-gray-500">
-            Last updated: {lastUpdate.toLocaleTimeString()}
-          </span>
+    <div className={`bg-white rounded-lg border border-gray-200 p-6 ${className}`}>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+            <span className="text-white text-sm font-bold">📊</span>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Agent Status</h3>
+            <p className="text-sm text-gray-600">Monitor agent availability and health</p>
+          </div>
         </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200"
+        >
+          Refresh
+        </button>
       </div>
+
+      {/* Backend Health */}
+      {backendHealth && (
+        <div className={`mb-6 p-4 rounded-lg border ${
+          backendHealth.status === 'healthy' 
+            ? 'bg-green-50 border-green-200' 
+            : 'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${
+                backendHealth.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+              }`}></div>
+              <span className="font-medium text-gray-900">Backend Status</span>
+            </div>
+            <span className={`text-sm font-medium ${
+              backendHealth.status === 'healthy' ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {backendHealth.status === 'healthy' ? 'Online' : 'Offline'}
+            </span>
+          </div>
+          <div className="text-xs text-gray-600 mt-1">
+            {backendHealth.backend} • {backendHealth.timestamp}
+          </div>
+          {backendHealth.error && (
+            <div className="text-xs text-red-600 mt-1">
+              Error: {backendHealth.error}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Statistics */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-          <div className="text-sm text-gray-500">Total Agents</div>
+        <div className="text-center p-4 bg-gray-50 rounded-lg">
+          <div className="text-2xl font-bold text-gray-900">{totalAgents}</div>
+          <div className="text-sm text-gray-600">Total Agents</div>
         </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-green-600">{stats.available}</div>
-          <div className="text-sm text-gray-500">Available</div>
+        <div className="text-center p-4 bg-green-50 rounded-lg">
+          <div className="text-2xl font-bold text-green-600">{availableAgents}</div>
+          <div className="text-sm text-gray-600">Available</div>
         </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-red-600">{stats.unavailable}</div>
-          <div className="text-sm text-gray-500">Unavailable</div>
+        <div className="text-center p-4 bg-red-50 rounded-lg">
+          <div className="text-2xl font-bold text-red-600">{unavailableAgents}</div>
+          <div className="text-sm text-gray-600">Unavailable</div>
         </div>
       </div>
 
       {/* Agent List */}
       <div className="space-y-3">
         {isLoading ? (
-          <div className="text-center py-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-sm text-gray-500 mt-2">Discovering agents...</p>
+          <div className="text-center py-8">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading agents...</p>
           </div>
         ) : agents.length === 0 ? (
-          <div className="text-center py-4">
-            <p className="text-gray-500">No agents discovered</p>
+          <div className="text-center py-8">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🔍</span>
+            </div>
+            <h4 className="text-lg font-medium text-gray-900 mb-2">No Agents Found</h4>
+            <p className="text-gray-600 mb-4">No agents are currently registered or available.</p>
             <button
-              onClick={loadAgents}
-              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
             >
               Refresh
             </button>
@@ -101,64 +154,35 @@ export function ServerStatus({ className = '' }: ServerStatusProps) {
           agents.map((agent) => (
             <div
               key={agent.card.name}
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+              className={`p-4 rounded-lg border ${
+                agent.isAvailable
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-red-50 border-red-200'
+              }`}
             >
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">
-                  {getStatusIcon(agent.isAvailable)}
-                </span>
-                <div>
-                  <div className="font-medium text-gray-800">
-                    {agent.card.name}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    agent.isAvailable ? 'bg-green-500' : 'bg-red-500'
+                  }`}></div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">{agent.card.name}</h4>
+                    <p className="text-sm text-gray-600">{agent.card.description}</p>
                   </div>
-                  <div className="text-sm text-gray-500">
-                    {agent.card.url}
+                </div>
+                <div className="text-right">
+                  <div className={`text-sm font-medium ${
+                    agent.isAvailable ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {agent.isAvailable ? 'Online' : 'Offline'}
                   </div>
-                  {agent.card.description && (
-                    <div className="text-xs text-gray-400 mt-1">
-                      {agent.card.description}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className={`text-sm font-medium ${getStatusColor(agent.isAvailable)}`}>
-                  {agent.isAvailable ? 'Online' : 'Offline'}
-                </div>
-                <div className="text-xs text-gray-400">
-                  {agent.lastChecked.toLocaleTimeString()}
+                  <div className="text-xs text-gray-500">v{agent.card.version}</div>
                 </div>
               </div>
             </div>
           ))
         )}
       </div>
-
-      {/* Capabilities */}
-      {agents.length > 0 && (
-        <div className="mt-6">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Agent Capabilities</h4>
-          <div className="space-y-2">
-            {agents.map((agent) => (
-              agent.card.capabilities && agent.card.capabilities.length > 0 && (
-                <div key={agent.card.name} className="text-sm">
-                  <span className="font-medium text-gray-600">{agent.card.name}:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {agent.card.capabilities.map((capability, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs"
-                      >
-                        {capability}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

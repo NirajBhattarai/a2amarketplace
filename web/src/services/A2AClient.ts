@@ -51,7 +51,7 @@ export interface GetTaskRequest {
   };
 }
 
-export interface JSONRPCResponse<T = any> {
+export interface JSONRPCResponse<T = unknown> {
   jsonrpc: '2.0';
   id: string;
   result?: T;

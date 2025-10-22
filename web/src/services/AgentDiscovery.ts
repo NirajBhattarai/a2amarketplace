@@ -142,7 +142,7 @@ export class AgentDiscovery {
         const isAvailable = await agent.client.isAvailable();
         agent.isAvailable = isAvailable;
         agent.lastChecked = new Date();
-      } catch (error) {
+      } catch {
         agent.isAvailable = false;
         agent.lastChecked = new Date();
       }
