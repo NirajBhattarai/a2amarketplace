@@ -90,19 +90,39 @@ class DiscoveryClient:
         async with httpx.AsyncClient() as client:
             # Iterate through each base URL in the registry
             for base in self.base_urls:
-                # Normalize URL (remove trailing slash) and append the discovery path
-                url = base.rstrip("/") + "/.well-known/agent.json"
+                base_url = base.rstrip("/")
+
+                # Try Python A2A discovery endpoint first
+                primary_url = base_url + "/.well-known/agent.json"
+                # Fallback to TS/JS discovery endpoint
+                fallback_url = base_url + "/.well-known/agent-card.json"
+
                 try:
-                    # Send a GET request to the discovery endpoint with a timeout
-                    response = await client.get(url, timeout=5.0)
-                    # Raise an exception if the response status is 4xx or 5xx
+                    response = await client.get(primary_url, timeout=5.0)
                     response.raise_for_status()
-                    # Convert the JSON response into an AgentCard Pydantic model
                     card = AgentCard.model_validate(response.json())
-                    # Add the valid AgentCard to our list
                     cards.append(card)
-                except Exception as e:
-                    # If anything goes wrong, log which URL failed and why
-                    logger.warning(f"Failed to discover agent at {url}: {e}")
+                    continue
+                except Exception as e1:
+                    logger.warning(f"Failed to discover agent at {primary_url}: {e1}")
+
+                # Try fallback path compatible with TS Movie Search Agent
+                try:
+                    response = await client.get(fallback_url, timeout=5.0)
+                    response.raise_for_status()
+                    data = response.json()
+                    # Map TS card to Python AgentCard schema (ignore extra fields)
+                    mapped = {
+                        "name": data.get("name", "Unknown Agent"),
+                        "description": data.get("description", ""),
+                        "url": data.get("url", base_url + "/"),
+                        "version": data.get("version", "1.0.0"),
+                        "capabilities": data.get("capabilities", {}),
+                        "skills": data.get("skills", []),
+                    }
+                    card = AgentCard.model_validate(mapped)
+                    cards.append(card)
+                except Exception as e2:
+                    logger.warning(f"Failed to discover agent at {fallback_url}: {e2}")
         # Return the list of successfully fetched AgentCards
         return cards

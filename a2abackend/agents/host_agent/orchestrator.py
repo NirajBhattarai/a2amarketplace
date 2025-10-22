@@ -155,6 +155,18 @@ class OrchestratorAgent:
             lines.append("  * Discovery: 'Find 100 carbon credits at best price' -> delegate text unchanged.")
             lines.append("  * Quick list: 'show offers' -> delegate 'list_offers(limit=10)'.")
             lines.append("  * Company details: 'get company details for X' -> delegate 'get_company_details(company_name=X)'.")
+        # Check for movie search agent (could be named "Movie Search Agent" or similar)
+        movie_agent = None
+        for name in names:
+            if "Movie" in name or "movie" in name:
+                movie_agent = name
+                break
+        
+        if movie_agent:
+            lines.append(f"- Movie searches and recommendations -> {movie_agent}:")
+            lines.append("  * Movie search: 'Find action movies', 'Search for Inception' -> delegate text unchanged.")
+            lines.append("  * Actor search: 'Find Leonardo DiCaprio movies' -> delegate text unchanged.")
+            lines.append("  * Recommendations: 'Recommend movies like The Matrix' -> delegate text unchanged.")
 
         lines.append("\nGeneral rules:")
         lines.append("- Maintain conversation context across turns using the same session.")
