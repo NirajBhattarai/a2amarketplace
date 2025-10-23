@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: carbon-credit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: carbon_credit_iot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: '--encoding=UTF-8'
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./a2abackend/utilities/carbon_marketplace/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - carbon-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d carbon_credit_iot']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: carbon-credit-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - carbon-network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin Database Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: carbon-credit-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@carboncredit.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - '8080:80'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - carbon-network
+    depends_on:
+      - postgres
+
+
+  # MQTT Broker (using existing config from iot_carbon_sequestration)
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: carbon-credit-mosquitto
+    restart: unless-stopped
+    ports:
+      - '1883:1883'
+      - '9001:9001'
+    volumes:
+      - ./iot_carbon_sequestration/creator/mqtt/config:/mosquitto/config
+      - ./iot_carbon_sequestration/creator/mqtt/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      - carbon-network
+    healthcheck:
+      test:
+        ['CMD', 'mosquitto_pub', '-h', 'localhost', '-t', 'test', '-m', 'test']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  carbon-network:
+    driver: bridge

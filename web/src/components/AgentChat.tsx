@@ -144,86 +144,22 @@ export function AgentChat({}: AgentChatProps) {
 
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-white">
-      {/* Enhanced Chat Header */}
-      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="relative">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm">🤖</span>
-              </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">A2A Agent Chat</h3>
-              <p className="text-xs text-gray-600">Real-time communication</p>
-            </div>
-          </div>
-          {conversationHistory.length > 0 && (
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="px-4 py-2 text-sm bg-white/80 backdrop-blur-sm text-blue-700 rounded-full hover:bg-white hover:shadow-md transition-all duration-200 border border-blue-200"
-            >
-              <span className="flex items-center space-x-2">
-                <span>📚</span>
-                <span>{showHistory ? 'Hide' : 'Show'} History</span>
-                <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs">
-                  {conversationHistory.length}
-                </span>
-              </span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Enhanced Conversation History Panel */}
-      {showHistory && conversationHistory.length > 0 && (
-        <div className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-200 max-h-40 overflow-y-auto">
-          <div className="flex items-center space-x-2 mb-3">
-            <span className="text-lg">📚</span>
-            <h4 className="text-sm font-semibold text-gray-800">Conversation History</h4>
-            <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs">
-              {conversationHistory.length} messages
-            </span>
-          </div>
-          <div className="space-y-3">
-            {conversationHistory.map((item: ConversationItem, index: number) => (
-              <div key={index} className="flex items-start space-x-3 p-2 bg-white/60 rounded-lg border border-gray-200">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                  item.role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
-                }`}>
-                  {item.role === 'user' ? '👤' : '🤖'}
-                </div>
-                <div className="flex-1">
-                  <div className="text-xs font-medium text-gray-700 mb-1">
-                    {item.role === 'user' ? 'User' : 'Agent'}
-                  </div>
-                  <div className="text-xs text-gray-600 leading-relaxed">
-                    {item.parts?.filter((part: ConversationPart) => part.type === 'text').map((part: ConversationPart) => part.text).join(' ') || 'No content'}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-full">
+      {/* Chat Messages Area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 modern-scrollbar">
         {messages.length === 0 && (
           <div className="text-center py-12">
             <div className="relative mb-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
-                <span className="text-2xl">🤖</span>
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto shadow-floating floating">
+                <span className="text-3xl">🤖</span>
               </div>
               <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full animate-pulse"></div>
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">Welcome to A2A Agent Chat</h3>
-            <p className="text-gray-600 mb-6">Use the Quick Actions on the right to start a conversation</p>
-            <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">
+            <h3 className="text-2xl font-semibold gradient-text mb-3">Welcome to A2A Agent Chat</h3>
+            <p className="text-white/80 mb-6">Use the suggestions below to start a conversation</p>
+            <div className="flex items-center justify-center space-x-4 text-sm text-white/70">
               <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <span>Online</span>
               </div>
               <div className="flex items-center space-x-1">
@@ -239,10 +175,8 @@ export function AgentChat({}: AgentChatProps) {
             key={message.id}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
           >
-            <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-sm ${
-              message.role === 'user'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
-                : 'bg-white border border-gray-200 text-gray-800'
+            <div className={`message-bubble ${
+              message.role === 'user' ? 'message-user' : 'message-agent'
             }`}>
               <div className="flex items-start space-x-2">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 ${
@@ -265,16 +199,16 @@ export function AgentChat({}: AgentChatProps) {
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-white border border-gray-200 text-gray-800 px-4 py-3 rounded-2xl shadow-sm">
+            <div className="glass-card text-white px-4 py-3 rounded-2xl shadow-modern">
               <div className="flex items-center space-x-3">
                 <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs">
                   🤖
                 </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  <span className="text-sm text-gray-600">Agent is thinking...</span>
+                <div className="typing-indicator">
+                  <div className="typing-dot"></div>
+                  <div className="typing-dot"></div>
+                  <div className="typing-dot"></div>
+                  <span className="text-sm text-white/80 ml-2">Agent is thinking...</span>
                 </div>
               </div>
             </div>
@@ -284,46 +218,41 @@ export function AgentChat({}: AgentChatProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Enhanced Input Area */}
-      <form onSubmit={handleSubmit} className="p-6 bg-gradient-to-r from-gray-50 to-blue-50 border-t border-gray-200">
-        <div className="flex items-end space-x-4 max-w-4xl mx-auto">
+
+      {/* Input Area */}
+      <form onSubmit={handleSubmit} className="p-4 glass-card border-t border-white/20">
+        <div className="flex items-end space-x-3">
           <div className="flex-1 relative">
-            <div className="relative">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e);
-                  }
-                }}
-                placeholder="Message A2A Agent..."
-                className="w-full px-6 py-4 pr-16 border border-gray-300 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white shadow-sm"
-                disabled={isLoading}
-                rows={1}
-                style={{ minHeight: '48px', maxHeight: '120px' }}
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  target.style.height = 'auto';
-                  target.style.height = Math.min(target.scrollHeight, 120) + 'px';
-                }}
-              />
-              <div className="absolute right-4 bottom-4 flex items-center space-x-2">
-                <span className="text-gray-400 text-sm">↵</span>
-                <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
-              </div>
-            </div>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+              placeholder="Ask prompt..."
+              className="modern-input w-full px-4 py-3 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              disabled={isLoading}
+              rows={1}
+              style={{ minHeight: '44px', maxHeight: '120px' }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+              }}
+            />
           </div>
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            className="modern-btn flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-modern hover:shadow-floating"
           >
             {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
             )}

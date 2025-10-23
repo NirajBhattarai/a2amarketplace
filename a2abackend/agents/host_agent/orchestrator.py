@@ -155,6 +155,13 @@ class OrchestratorAgent:
             lines.append("  * Discovery: 'Find 100 carbon credits at best price' -> delegate text unchanged.")
             lines.append("  * Quick list: 'show offers' -> delegate 'list_offers(limit=10)'.")
             lines.append("  * Company details: 'get company details for X' -> delegate 'get_company_details(company_name=X)'.")
+        if "IoTCarbonAgent" in names:
+            lines.append("- IoT carbon sequestration -> IoTCarbonAgent:")
+            lines.append("  * Live data: 'show current IoT device data' -> delegate 'get_live_sensor_data()'.")
+            lines.append("  * Predictions: 'predict carbon credits for next 24 hours' -> delegate 'predict_carbon_credits()'.")
+            lines.append("  * Device status: 'show IoT device status' -> delegate 'get_device_status()'.")
+            lines.append("  * Trends: 'analyze carbon sequestration trends' -> delegate 'analyze_sequestration_trends()'.")
+            lines.append("  * Company advice: 'help me prepare for carbon credits' -> delegate 'get_company_preparation_advice()'.")
         # Check for movie search agent (could be named "Movie Search Agent" or similar)
         movie_agent = None
         for name in names:
