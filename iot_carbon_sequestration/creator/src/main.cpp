@@ -96,9 +96,9 @@ bool connectToMqtt() {
     Serial.println(" ✅ CONNECTED");
     mqttConnected = true;
     
-    // Subscribe to topics with API key
+    // Subscribe to topics with company name
     char subscribeTopic[100];
-    snprintf(subscribeTopic, sizeof(subscribeTopic), "%s/%s/commands", MQTT_TOPIC_PREFIX, API_KEY);
+    snprintf(subscribeTopic, sizeof(subscribeTopic), "%s/%s/commands", MQTT_TOPIC_PREFIX, COMPANY_NAME);
     mqttClient.subscribe(subscribeTopic);
     Serial.printf("📡 Subscribed to: %s\n", subscribeTopic);
     
@@ -182,9 +182,9 @@ void publishAggregatedDataToMqtt() {
     return;
   }
   
-  // Publish to topic with API key
+  // Publish to topic with company name
   char topic[100];
-  snprintf(topic, sizeof(topic), "%s/%s/sensor_data", MQTT_TOPIC_PREFIX, API_KEY);
+  snprintf(topic, sizeof(topic), "%s/%s/sensor_data", MQTT_TOPIC_PREFIX, COMPANY_NAME);
   
   Serial.printf("📤 Publishing to topic: %s\n", topic);
   Serial.printf("📤 Payload length: %d\n", payloadLen);
@@ -225,7 +225,7 @@ void sendCriticalAlert(const char* alertType, const char* message) {
   }
   
   char topic[100];
-  snprintf(topic, sizeof(topic), "%s/%s/alerts", MQTT_TOPIC_PREFIX, API_KEY);
+  snprintf(topic, sizeof(topic), "%s/%s/alerts", MQTT_TOPIC_PREFIX, COMPANY_NAME);
   
   Serial.printf("🚨 Sending critical alert to topic: %s\n", topic);
   
@@ -264,7 +264,7 @@ void sendHeartbeat() {
   }
   
   char topic[100];
-  snprintf(topic, sizeof(topic), "%s/%s/heartbeat", MQTT_TOPIC_PREFIX, API_KEY);
+  snprintf(topic, sizeof(topic), "%s/%s/heartbeat", MQTT_TOPIC_PREFIX, COMPANY_NAME);
   
   Serial.printf("💓 Sending heartbeat to topic: %s\n", topic);
   

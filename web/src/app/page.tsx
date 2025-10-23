@@ -162,6 +162,15 @@ export default function Home() {
                 >
                   📊 Carbon Forecast
                 </button>
+                <button
+                  onClick={() => {
+                    const event = new CustomEvent('sendMessage', { detail: 'List automation rules' });
+                    window.dispatchEvent(event);
+                  }}
+                  className="suggestion-pill automation modern-btn"
+                >
+                  🤖 Automation Rules
+                </button>
               </div>
             </div>
           </div>

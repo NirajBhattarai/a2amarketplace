@@ -1,16 +1,18 @@
-# 🤖 TellTimeAgent & Multi-Agent Demo – A2A with Google ADK
+# 🌱 Carbon Credit Marketplace & IoT Multi-Agent System – A2A with Google ADK
 
-Welcome to **TellTimeAgent** and the **Multi-Agent** demo — a minimal Agent2Agent (A2A) implementation using Google's [Agent Development Kit (ADK)](https://github.com/google/agent-development-kit).
+Welcome to the **Carbon Credit Marketplace & IoT Multi-Agent System** — a comprehensive Agent2Agent (A2A) implementation using Google's [Agent Development Kit (ADK)](https://github.com/google/agent-development-kit) for carbon credit trading with real-time IoT data integration.
 
-This example demonstrates how to build, serve, and interact with six A2A agents:
+This system demonstrates how to build, serve, and interact with seven A2A agents:
 1. **TellTimeAgent** – replies with the current time.
 2. **GreetingAgent** – fetches the time and generates a poetic greeting.
 3. **CarbonCreditAgent** – negotiates carbon credit purchases from marketplace companies.
 4. **WalletBalanceAgent** – checks wallet balances across Hedera, Ethereum, and Polygon networks.
 5. **PaymentAgent** – executes real blockchain transactions across Hedera, Ethereum, and Polygon networks.
-6. **OrchestratorAgent** – routes requests to the appropriate child agent.
+6. **IoTCarbonAgent** – processes real-time IoT carbon sequestration data and provides predictions.
+7. **PrebookingAgent** – creates carbon credit prebookings based on IoT predictions with prepayment.
+8. **OrchestratorAgent** – routes requests to the appropriate child agent.
 
-All of them work together seamlessly via A2A discovery and JSON-RPC.
+All agents work together seamlessly via A2A discovery and JSON-RPC, with real-time IoT data integration for carbon credit forecasting and prebooking.
 
 ---
 
@@ -47,6 +49,14 @@ version_3_multi_agent/
 │   │   ├── agent.py            # Multi-network payment execution agent with real blockchain transactions
 │   │   ├── task_manager.py     # Task handler for PaymentAgent
 │   │   └── test_payment_agent.py # Test script for PaymentAgent
+│   ├── iot_carbon_agent/
+│   │   ├── __main__.py         # Starts IoTCarbonAgent server
+│   │   ├── agent.py            # IoT carbon sequestration data processing and prediction agent
+│   │   └── task_manager.py     # Task handler for IoTCarbonAgent
+│   ├── prebooking_agent/
+│   │   ├── __main__.py         # Starts PrebookingAgent server
+│   │   ├── agent.py            # Carbon credit prebooking agent with IoT prediction integration
+│   │   └── task_manager.py     # Task handler for PrebookingAgent
 │   └── host_agent/
 │       ├── entry.py            # CLI to start OrchestratorAgent server
 │       ├── orchestrator.py     # LLM router + TaskManager for OrchestratorAgent
@@ -163,6 +173,18 @@ python3 -m agents.payment_agent \
   --host localhost --port 10005
 ```
 
+**Start the IoT Carbon Agent**
+```bash
+python3 -m agents.iot_carbon_agent \
+  --host localhost --port 10006
+```
+
+**Start the Prebooking Agent**
+```bash
+python3 -m agents.prebooking_agent \
+  --host localhost --port 10007
+```
+
 **Launch the CLI (cmd.py)**
 ```bash
 python3 -m app.cmd.cmd --agent http://localhost:10002
@@ -185,8 +207,11 @@ Agent says: Here's your wallet balance across networks...
 > Send 0.001 HBAR to account 0.0.123456
 Agent says: Executing HBAR transfer to account 0.0.123456...
 
-> Transfer 0.0001 ETH to 0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6
-Agent says: Processing Ethereum transfer...
+> Get carbon credit forecast from IoT devices
+Agent says: Based on real-time IoT data, I predict 150 carbon credits will be generated in the next 24 hours...
+
+> Create a prebooking for TechCorp for 24 hours
+Agent says: I'll create a prebooking for TechCorp based on IoT predictions with 5% prepayment discount...
 ```
 
 ---
@@ -203,7 +228,53 @@ Agent says: Processing Ethereum transfer...
    - CarbonCreditAgent negotiates carbon credit purchases from database marketplace.
    - WalletBalanceAgent checks wallet balances across Hedera, Ethereum, and Polygon networks.
    - PaymentAgent executes real blockchain transactions across Hedera, Ethereum, and Polygon networks.
+   - IoTCarbonAgent processes real-time MQTT data from IoT devices and provides carbon credit predictions.
+   - PrebookingAgent creates carbon credit prebookings based on IoT predictions with prepayment functionality.
 4. **JSON-RPC**: All communication uses A2A JSON-RPC 2.0 over HTTP via Starlette & Uvicorn.
+
+---
+
+## 🌱 IoT Integration & Company-Based System
+
+### **Real-Time IoT Data Processing**
+The system integrates with IoT carbon sequestration devices that publish data via MQTT:
+
+- **Company-Based Registration**: Devices register by company name (e.g., "TechCorp", "GreenEnergy", "EcoSolutions")
+- **MQTT Topics**: `carbon_sequestration/{company_name}/{message_type}`
+  - `sensor_data` - Real-time CO2, humidity, and carbon credit data
+  - `alerts` - Critical alerts for high CO2 levels
+  - `heartbeat` - Device status and connectivity
+  - `commands` - Remote device control
+
+### **IoT Carbon Agent Features**
+- **Real-Time Processing**: Listens to MQTT data from multiple companies
+- **Carbon Credit Predictions**: Analyzes trends and forecasts future carbon credit generation
+- **Company Identification**: Tracks data by company for targeted predictions
+- **Alert Processing**: Handles critical alerts and device status monitoring
+
+### **Prebooking Agent Features**
+- **IoT Prediction Integration**: Uses IoT Carbon Agent predictions for prebooking decisions
+- **Prepayment Processing**: Handles prepayments with 5% discount for early booking
+- **Company-Specific Prebookings**: Creates prebookings for specific companies
+- **Confidence-Based Validation**: Only creates prebookings when prediction confidence > 70%
+
+### **Simulation & Testing**
+```bash
+# Simulate IoT data from 3 companies
+python simulate_iot_data.py
+
+# Test IoT Carbon Agent directly
+curl -X POST http://localhost:10006/ -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": "test", "method": "tasks/send", 
+       "params": {"id": "test", "sessionId": "test", 
+                 "message": {"role": "user", "parts": [{"type": "text", "text": "Get carbon credit forecast"}]}}}'
+
+# Test Prebooking Agent
+curl -X POST http://localhost:10007/ -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": "test", "method": "tasks/send", 
+       "params": {"id": "test", "sessionId": "test", 
+                 "message": {"role": "user", "parts": [{"type": "text", "text": "Create prebooking for TechCorp"}]}}}'
+```
 
 ---
 

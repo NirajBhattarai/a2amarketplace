@@ -9,8 +9,8 @@ import click
 import logging
 from .agent import IoTCarbonAgent
 from .task_manager import IoTCarbonTaskManager
-from google.adk.server.a2a_server import A2AServer
-from google.adk.models.agent import AgentCard, AgentCapabilities, AgentSkill
+from server.server import A2AServer
+from models.agent import AgentCard, AgentCapabilities, AgentSkill
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

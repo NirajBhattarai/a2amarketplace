@@ -68,6 +68,26 @@ class CarbonCreditAgent:
         # Database connection setup
         self.db_connection = self._setup_database_connection()
 
+    def _handle_gemini_error(self, error: Exception) -> str:
+        """
+        🔧 Handle Gemini API errors with proper logging and user-friendly messages.
+        """
+        error_str = str(error)
+        logger.error(f"🚨 Gemini API Error in Carbon Credit Agent: {error_str}")
+        
+        if "503 UNAVAILABLE" in error_str or "overloaded" in error_str.lower():
+            logger.warning("⚠️ Gemini API is overloaded - Carbon Credit Agent")
+            return "The AI service is temporarily overloaded. Please try again in a few moments."
+        elif "400 Bad Request" in error_str:
+            logger.error("❌ Bad request to Gemini API - Carbon Credit Agent")
+            return "Invalid request format. Please check your input."
+        elif "rate limit" in error_str.lower():
+            logger.warning("⏰ Rate limit exceeded - Carbon Credit Agent")
+            return "Too many requests. Please wait before trying again."
+        else:
+            logger.error(f"❌ Unknown Gemini API error in Carbon Credit Agent: {error_str}")
+            return "An unexpected error occurred. Please try again later."
+
     async def get_company_details(
         self,
         company_name: str = ""

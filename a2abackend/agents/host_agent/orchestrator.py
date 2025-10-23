@@ -105,6 +105,26 @@ class OrchestratorAgent:
             memory_service=InMemoryMemoryService(),
         )
 
+    def _handle_gemini_error(self, error: Exception) -> str:
+        """
+        🔧 Handle Gemini API errors with proper logging and user-friendly messages.
+        """
+        error_str = str(error)
+        logger.error(f"🚨 Gemini API Error in Orchestrator: {error_str}")
+        
+        if "503 UNAVAILABLE" in error_str or "overloaded" in error_str.lower():
+            logger.warning("⚠️ Gemini API is overloaded - Orchestrator")
+            return "The AI service is temporarily overloaded. Please try again in a few moments."
+        elif "400 Bad Request" in error_str:
+            logger.error("❌ Bad request to Gemini API - Orchestrator")
+            return "Invalid request format. Please check your input."
+        elif "rate limit" in error_str.lower():
+            logger.warning("⏰ Rate limit exceeded - Orchestrator")
+            return "Too many requests. Please wait before trying again."
+        else:
+            logger.error(f"❌ Unknown Gemini API error in Orchestrator: {error_str}")
+            return "An unexpected error occurred. Please try again later."
+
     def _build_agent(self) -> LlmAgent:
         """
         Construct the Gemini-based LlmAgent with:
@@ -162,6 +182,12 @@ class OrchestratorAgent:
             lines.append("  * Device status: 'show IoT device status' -> delegate 'get_device_status()'.")
             lines.append("  * Trends: 'analyze carbon sequestration trends' -> delegate 'analyze_sequestration_trends()'.")
             lines.append("  * Company advice: 'help me prepare for carbon credits' -> delegate 'get_company_preparation_advice()'.")
+        if "AutomationAgent" in names:
+            lines.append("- Automation and workflows -> AutomationAgent:")
+            lines.append("  * Rule management: 'list automation rules', 'enable automation', 'disable automation' -> delegate text unchanged.")
+            lines.append("  * Automation status: 'automation status', 'check automation' -> delegate text unchanged.")
+            lines.append("  * Workflow creation: 'create automation rule', 'add automation' -> delegate text unchanged.")
+            lines.append("  * Scheduled tasks: 'schedule task', 'create schedule' -> delegate text unchanged.")
         # Check for movie search agent (could be named "Movie Search Agent" or similar)
         movie_agent = None
         for name in names:

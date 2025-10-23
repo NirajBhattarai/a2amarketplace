@@ -158,6 +158,48 @@ class PaymentAgent:
             self.ethereum_w3 = None
             self.polygon_w3 = None
 
+    def _handle_gemini_error(self, error: Exception) -> Dict[str, Any]:
+        """
+        🔧 Handle Gemini API errors with proper logging and user-friendly messages.
+        """
+        error_str = str(error)
+        logger.error(f"🚨 Gemini API Error: {error_str}")
+        
+        if "503 UNAVAILABLE" in error_str or "overloaded" in error_str.lower():
+            logger.warning("⚠️ Gemini API is overloaded - implementing retry logic")
+            return {
+                "success": False,
+                "error": "API_OVERLOAD",
+                "message": "The AI service is temporarily overloaded. Please try again in a few moments.",
+                "retry_after": 30,
+                "timestamp": datetime.now().isoformat()
+            }
+        elif "400 Bad Request" in error_str:
+            logger.error("❌ Bad request to Gemini API")
+            return {
+                "success": False,
+                "error": "BAD_REQUEST", 
+                "message": "Invalid request format. Please check your input.",
+                "timestamp": datetime.now().isoformat()
+            }
+        elif "rate limit" in error_str.lower():
+            logger.warning("⏰ Rate limit exceeded")
+            return {
+                "success": False,
+                "error": "RATE_LIMIT",
+                "message": "Too many requests. Please wait before trying again.",
+                "retry_after": 60,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            logger.error(f"❌ Unknown Gemini API error: {error_str}")
+            return {
+                "success": False,
+                "error": "UNKNOWN_ERROR",
+                "message": "An unexpected error occurred. Please try again later.",
+                "timestamp": datetime.now().isoformat()
+            }
+
     def _build_agent(self) -> LlmAgent:
         """
         🔧 Internal: define the LLM, its system instruction, and wrap tools.
@@ -180,12 +222,18 @@ class PaymentAgent:
             Returns:
                 Dictionary containing transaction result
             """
+            logger.info(f"🔄 Starting HBAR transfer: {amount} HBAR to {destination_account}")
             try:
+                # First check our balance
+                balance_result = await self._get_hedera_balance()
+                logger.info(f"💰 Current balance: {balance_result}")
+                
                 result = await self._execute_hedera_transfer(destination_account, amount, memo)
+                logger.info(f"✅ HBAR transfer completed: {result}")
                 return result
             except Exception as e:
-                logger.error(f"Error transferring HBAR: {e}")
-                return {"error": str(e), "success": False}
+                logger.error(f"❌ Error transferring HBAR: {e}")
+                return {"error": str(e), "success": False, "message": f"Failed to transfer {amount} HBAR to {destination_account}"}
 
         # --- Tool 2: transfer_eth ---
         async def transfer_eth(
@@ -330,6 +378,14 @@ class PaymentAgent:
             "- If no company name provided, the function will automatically pick the cheapest available\n"
             "- The function handles company resolution, payment processing, and database recording\n"
             "- Always call buy_carbon_credits directly for carbon credit purchase requests\n\n"
+            "IMPORTANT ERROR HANDLING:\n"
+            "- If you encounter API rate limiting or overload errors, provide a clear error message\n"
+            "- Log all transaction attempts with detailed information\n"
+            "- For HBAR transfers, always check account balance first\n"
+            "- Provide step-by-step logging for debugging\n"
+            "- When Gemini API throws 503 UNAVAILABLE errors, respond with: 'The AI service is temporarily overloaded. Please try again in a few moments.'\n"
+            "- When Gemini API throws 400 Bad Request errors, respond with: 'Invalid request format. Please check your input.'\n"
+            "- Always log the exact error details for debugging purposes\n\n"
             "Always be helpful, provide clear network information, and confirm "
             "transactions with transaction IDs when available."
         )

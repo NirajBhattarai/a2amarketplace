@@ -8,9 +8,9 @@
 
 import logging
 from typing import Optional
-from google.adk.server.task_manager import InMemoryTaskManager
-from google.adk.models.request import SendTaskRequest, SendTaskResponse
-from google.adk.models.task import Message, TextPart, TaskStatus, TaskState
+from server.task_manager import InMemoryTaskManager
+from models.request import SendTaskRequest, SendTaskResponse
+from models.task import Message, TextPart, TaskStatus, TaskState
 from .agent import IoTCarbonAgent
 
 # Create a module-level logger

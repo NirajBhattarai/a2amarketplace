@@ -61,9 +61,11 @@ class IoTCarbonAgent:
         self.recent_readings = deque(maxlen=100)  # Keep last 100 readings
         self.prediction_cache = {}  # Cache for predictions
         
-        # MQTT topics
-        self.sensor_topic = "carbon_credit/sensor_data"
-        self.commands_topic = "carbon_credit/commands"
+        # MQTT topics - match the IoT device topics from main.cpp
+        self.sensor_topic = "carbon_sequestration/+/sensor_data"  # Wildcard for all devices
+        self.alerts_topic = "carbon_sequestration/+/alerts"       # Critical alerts
+        self.heartbeat_topic = "carbon_sequestration/+/heartbeat"  # Device heartbeats
+        self.commands_topic = "carbon_sequestration/+/commands"   # Commands
         
         # Build the LLM with its tools and system instruction
         self.agent = self._build_agent()
@@ -105,6 +107,8 @@ class IoTCarbonAgent:
         - get_device_status(): Get status of all IoT devices
         - analyze_sequestration_trends(): Analyze carbon sequestration trends
         - get_company_preparation_advice(): Get advice for companies preparing for carbon credits
+        - get_mqtt_forecast(): Get carbon credit forecast directly from MQTT data
+        - get_recent_alerts(): Get recent alerts from IoT devices
         
         Focus on real-time analysis and prediction to help companies prepare for 
         their carbon credit needs based on actual IoT device performance.
@@ -117,6 +121,8 @@ class IoTCarbonAgent:
             FunctionTool(self.get_device_status),
             FunctionTool(self.analyze_sequestration_trends),
             FunctionTool(self.get_company_preparation_advice),
+            FunctionTool(self.get_mqtt_forecast),
+            FunctionTool(self.get_recent_alerts),
         ]
 
         return LlmAgent(
@@ -151,10 +157,12 @@ class IoTCarbonAgent:
         if rc == 0:
             logger.info("✅ Connected to MQTT broker")
             self.mqtt_connected = True
-            # Subscribe to sensor data topic
+            # Subscribe to all IoT carbon sequestration topics
             client.subscribe(self.sensor_topic)
+            client.subscribe(self.alerts_topic)
+            client.subscribe(self.heartbeat_topic)
             client.subscribe(self.commands_topic)
-            logger.info(f"📡 Subscribed to topics: {self.sensor_topic}, {self.commands_topic}")
+            logger.info(f"📡 Subscribed to topics: {self.sensor_topic}, {self.alerts_topic}, {self.heartbeat_topic}, {self.commands_topic}")
         else:
             logger.error(f"❌ MQTT connection failed with code {rc}")
             self.mqtt_connected = False
@@ -165,10 +173,23 @@ class IoTCarbonAgent:
             topic = msg.topic
             payload = json.loads(msg.payload.decode('utf-8'))
             
-            logger.info(f"📨 Received MQTT message on {topic}")
+            # Extract company name from topic (format: carbon_sequestration/{company}/{message_type})
+            topic_parts = topic.split('/')
+            company_name = topic_parts[1] if len(topic_parts) > 1 else "Unknown"
             
-            if topic == self.sensor_topic:
+            # Add company information to payload
+            payload['company'] = company_name
+            
+            logger.info(f"📨 Received MQTT message on {topic} from company: {company_name}")
+            
+            if "sensor_data" in topic:
                 self._process_sensor_data(payload)
+            elif "alerts" in topic:
+                self._process_alert_data(payload)
+            elif "heartbeat" in topic:
+                self._process_heartbeat_data(payload)
+            elif "commands" in topic:
+                self._process_command_data(payload)
                 
         except json.JSONDecodeError as e:
             logger.error(f"❌ Failed to decode MQTT message: {e}")
@@ -188,13 +209,16 @@ class IoTCarbonAgent:
             # Extract device information
             device_mac = data.get('mac', 'unknown')
             device_ip = data.get('ip', 'unknown')
+            company_name = data.get('company', 'Unknown')
             
             # Extract sensor readings
             avg_co2 = float(data.get('avg_c', 0))
             avg_humidity = float(data.get('avg_h', 0))
             carbon_credits = float(data.get('cr', 0))
             emissions = float(data.get('e', 0))
-            offset = data.get('o', 'false').lower() == 'true'
+            offset = data.get('o', False)
+            if isinstance(offset, str):
+                offset = offset.lower() == 'true'
             timestamp = data.get('t', int(time.time() * 1000))
             samples = int(data.get('samples', 1))
             
@@ -205,6 +229,7 @@ class IoTCarbonAgent:
             self.device_data[device_mac] = {
                 "device_ip": device_ip,
                 "device_mac": device_mac,
+                "company_name": company_name,
                 "avg_co2": avg_co2,
                 "avg_humidity": avg_humidity,
                 "carbon_credits": carbon_credits,
@@ -219,6 +244,7 @@ class IoTCarbonAgent:
             self.recent_readings.append({
                 "device_mac": device_mac,
                 "device_ip": device_ip,
+                "company_name": company_name,
                 "avg_co2": avg_co2,
                 "avg_humidity": avg_humidity,
                 "carbon_credits": carbon_credits,
@@ -235,6 +261,75 @@ class IoTCarbonAgent:
             
         except Exception as e:
             logger.error(f"❌ Error processing sensor data: {e}")
+
+    def _process_alert_data(self, data: Dict[str, Any]):
+        """
+        Process critical alert data from IoT devices
+        """
+        try:
+            device_mac = data.get('mac', 'unknown')
+            alert_type = data.get('alert_type', 'unknown')
+            message = data.get('message', 'No message')
+            co2_level = data.get('co2', 0)
+            credits = data.get('credits', 0)
+            
+            logger.warning(f"🚨 ALERT from {device_mac}: {alert_type} - {message}")
+            logger.warning(f"   CO2: {co2_level}, Credits: {credits}")
+            
+            # Store alert for analysis
+            if not hasattr(self, 'recent_alerts'):
+                self.recent_alerts = deque(maxlen=50)
+            
+            self.recent_alerts.append({
+                "device_mac": device_mac,
+                "alert_type": alert_type,
+                "message": message,
+                "co2_level": co2_level,
+                "credits": credits,
+                "timestamp": datetime.now()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing alert data: {e}")
+
+    def _process_heartbeat_data(self, data: Dict[str, Any]):
+        """
+        Process device heartbeat data
+        """
+        try:
+            device_mac = data.get('mac', 'unknown')
+            device_ip = data.get('ip', 'unknown')
+            status = data.get('status', 'unknown')
+            uptime = data.get('uptime', 0)
+            rssi = data.get('rssi', 0)
+            
+            logger.info(f"💓 Heartbeat from {device_mac}: {status}, uptime: {uptime}ms, RSSI: {rssi}")
+            
+            # Update device status
+            if device_mac in self.device_data:
+                self.device_data[device_mac]["last_heartbeat"] = datetime.now()
+                self.device_data[device_mac]["device_status"] = status
+                self.device_data[device_mac]["uptime"] = uptime
+                self.device_data[device_mac]["rssi"] = rssi
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing heartbeat data: {e}")
+
+    def _process_command_data(self, data: Dict[str, Any]):
+        """
+        Process command data from IoT devices
+        """
+        try:
+            device_mac = data.get('mac', 'unknown')
+            command = data.get('command', 'unknown')
+            
+            logger.info(f"📨 Command from {device_mac}: {command}")
+            
+            # Process commands if needed
+            # This could be used to send commands back to devices
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing command data: {e}")
 
     async def get_live_sensor_data(self) -> Dict[str, Any]:
         """
@@ -610,3 +705,163 @@ class IoTCarbonAgent:
 
         # 📤 Extract and join all text responses into one string
         return "\n".join([p.text for p in last_event.content.parts if p.text])
+
+    async def get_mqtt_forecast(self, hours: int = 24) -> Dict[str, Any]:
+        """
+        🔮 Get carbon credit forecast directly from MQTT data
+        """
+        try:
+            if not self.device_data:
+                return {
+                    "error": "No MQTT data available for forecast",
+                    "mqtt_connected": self.mqtt_connected,
+                    "message": "Connect to MQTT broker to receive IoT device data"
+                }
+            
+            # Get recent data for trend analysis
+            recent_data = list(self.recent_readings)[-20:]  # Last 20 readings
+            
+            if not recent_data:
+                return {
+                    "error": "No recent MQTT data for forecast",
+                    "mqtt_connected": self.mqtt_connected
+                }
+            
+            # Calculate current trends
+            co2_values = [r["avg_co2"] for r in recent_data]
+            credit_values = [r["carbon_credits"] for r in recent_data]
+            humidity_values = [r["avg_humidity"] for r in recent_data]
+            
+            # Calculate averages and trends
+            avg_co2 = sum(co2_values) / len(co2_values)
+            avg_credits = sum(credit_values) / len(credit_values)
+            avg_humidity = sum(humidity_values) / len(humidity_values)
+            
+            # Calculate trends (simple linear regression)
+            co2_trend = self._calculate_trend(co2_values)
+            credit_trend = self._calculate_trend(credit_values)
+            
+            # Generate forecast points
+            forecast_points = []
+            current_time = datetime.now()
+            
+            for hour in range(1, hours + 1):
+                forecast_time = current_time + timedelta(hours=hour)
+                
+                # Project values based on trends
+                projected_co2 = avg_co2 + (co2_trend * hour)
+                projected_credits = avg_credits + (credit_trend * hour)
+                projected_humidity = avg_humidity + (hour * 0.1)
+                
+                # Apply environmental factors
+                if hour > 12:  # Night time effect
+                    projected_co2 *= 0.9
+                    projected_credits *= 1.1
+                
+                forecast_points.append({
+                    'hour': hour,
+                    'timestamp': forecast_time.isoformat(),
+                    'projected_co2': round(projected_co2, 1),
+                    'projected_credits': round(projected_credits, 1),
+                    'projected_humidity': round(projected_humidity, 1),
+                    'confidence': max(0.1, 1.0 - (hour * 0.05))
+                })
+            
+            # Calculate total projected credits
+            total_projected_credits = sum(point['projected_credits'] for point in forecast_points)
+            
+            # Generate recommendations
+            recommendations = []
+            if avg_co2 > 1000:
+                recommendations.append("High CO2 levels detected - consider increasing sequestration")
+            if avg_credits < 5:
+                recommendations.append("Low carbon credit generation - check device performance")
+            if co2_trend > 0:
+                recommendations.append("CO2 levels increasing - immediate action needed")
+            if credit_trend < 0:
+                recommendations.append("Carbon credit generation decreasing - investigate devices")
+            
+            return {
+                "forecast_source": "MQTT IoT Devices",
+                "forecast_period_hours": hours,
+                "generated_at": datetime.now().isoformat(),
+                "data_points_analyzed": len(recent_data),
+                "mqtt_connected": self.mqtt_connected,
+                "current_metrics": {
+                    "avg_co2": round(avg_co2, 1),
+                    "avg_credits": round(avg_credits, 1),
+                    "avg_humidity": round(avg_humidity, 1),
+                    "co2_trend": round(co2_trend, 2),
+                    "credit_trend": round(credit_trend, 2)
+                },
+                "total_projected_credits": round(total_projected_credits, 1),
+                "forecast_points": forecast_points,
+                "recommendations": recommendations,
+                "active_devices": len(self.device_data),
+                "data_freshness": f"{(datetime.now() - recent_data[-1]['sensor_time']).total_seconds():.0f} seconds ago"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting MQTT forecast: {e}")
+            return {"error": f"Failed to get MQTT forecast: {str(e)}"}
+
+    async def get_recent_alerts(self) -> Dict[str, Any]:
+        """
+        🚨 Get recent alerts from IoT devices
+        """
+        try:
+            if not hasattr(self, 'recent_alerts') or not self.recent_alerts:
+                return {
+                    "status": "no_alerts",
+                    "message": "No recent alerts from IoT devices",
+                    "mqtt_connected": self.mqtt_connected
+                }
+            
+            alerts = list(self.recent_alerts)
+            
+            # Count alert types
+            alert_types = {}
+            for alert in alerts:
+                alert_type = alert["alert_type"]
+                alert_types[alert_type] = alert_types.get(alert_type, 0) + 1
+            
+            return {
+                "status": "success",
+                "total_alerts": len(alerts),
+                "alert_types": alert_types,
+                "recent_alerts": [
+                    {
+                        "device_mac": alert["device_mac"],
+                        "alert_type": alert["alert_type"],
+                        "message": alert["message"],
+                        "co2_level": alert["co2_level"],
+                        "credits": alert["credits"],
+                        "timestamp": alert["timestamp"].isoformat()
+                    }
+                    for alert in alerts[-10:]  # Last 10 alerts
+                ],
+                "mqtt_connected": self.mqtt_connected,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting recent alerts: {e}")
+            return {"error": f"Failed to get recent alerts: {str(e)}"}
+
+    def _calculate_trend(self, values: List[float]) -> float:
+        """Calculate linear trend from a list of values"""
+        if len(values) < 2:
+            return 0.0
+        
+        # Simple linear regression slope
+        n = len(values)
+        x_sum = sum(range(n))
+        y_sum = sum(values)
+        xy_sum = sum(i * val for i, val in enumerate(values))
+        x2_sum = sum(i * i for i in range(n))
+        
+        if n * x2_sum - x_sum * x_sum == 0:
+            return 0.0
+        
+        slope = (n * xy_sum - x_sum * y_sum) / (n * x2_sum - x_sum * x_sum)
+        return slope
