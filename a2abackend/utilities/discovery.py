@@ -106,7 +106,7 @@ class DiscoveryClient:
                 except Exception as e1:
                     logger.warning(f"Failed to discover agent at {primary_url}: {e1}")
 
-                # Try fallback path compatible with TS Movie Search Agent
+                # Try fallback path for alternative agent card endpoints
                 try:
                     response = await client.get(fallback_url, timeout=5.0)
                     response.raise_for_status()
