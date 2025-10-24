@@ -227,12 +227,6 @@ python3 -m agents.prebooking_agent \
   --host localhost --port 10007
 ```
 
-**Start the Instant Carbon Agent**
-```bash
-python3 -m agents.instant_carbon_agent \
-  --host localhost --port 10008
-```
-
 **Start the Hedera Payment Agent**
 ```bash
 cd agents/hedera_payment_agent

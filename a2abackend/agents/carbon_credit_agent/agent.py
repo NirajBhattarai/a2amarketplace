@@ -31,6 +31,7 @@ import os
 import json
 import urllib.request
 
+
 # Create a module-level logger
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,64 @@ class CarbonCreditAgent:
             logger.error(f"Error in get_company_details: {e}")
             return {"status": "failed", "message": str(e)}
 
+    async def get_registered_companies(self) -> Dict[str, Any]:
+        """
+        🏢 Get list of all registered companies making carbon credits
+        """
+        try:
+            with self.db_connection.cursor() as cursor:
+                # Get all companies with their credit offers
+                cursor.execute("""
+                    SELECT DISTINCT 
+                        c.company_id,
+                        c.company_name,
+                        c.address,
+                        c.website,
+                        c.location,
+                        c.wallet_address,
+                        COUNT(cc.credit_id) as total_offers,
+                        AVG(cc.offer_price) as avg_price,
+                        MIN(cc.offer_price) as min_price,
+                        MAX(cc.offer_price) as max_price,
+                        SUM(cc.available_credits) as total_available_credits
+                    FROM company c
+                    LEFT JOIN company_credit cc ON c.company_id = cc.company_id
+                    GROUP BY c.company_id, c.company_name, c.address, c.website, c.location, c.wallet_address
+                    ORDER BY c.company_name
+                """)
+                
+                companies = []
+                for row in cursor.fetchall():
+                    company_info = {
+                        "company_id": row["company_id"],
+                        "company_name": row["company_name"],
+                        "address": row["address"],
+                        "website": row["website"],
+                        "location": row["location"],
+                        "wallet_address": row["wallet_address"],
+                        "total_offers": row["total_offers"] or 0,
+                        "avg_price": round(float(row["avg_price"] or 0), 2),
+                        "min_price": round(float(row["min_price"] or 0), 2),
+                        "max_price": round(float(row["max_price"] or 0), 2),
+                        "total_available_credits": row["total_available_credits"] or 0
+                    }
+                    companies.append(company_info)
+                
+                return {
+                    "status": "success",
+                    "total_companies": len(companies),
+                    "companies": companies,
+                    "message": f"Found {len(companies)} registered companies making carbon credits"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error in get_registered_companies: {e}")
+            return {
+                "status": "failed", 
+                "message": f"Failed to get registered companies: {str(e)}",
+                "companies": []
+            }
+
     def _build_agent(self) -> LlmAgent:
         """
         🔧 Internal: define the LLM, its system instruction, and wrap tools.
@@ -252,7 +311,8 @@ class CarbonCreditAgent:
             "1) search_carbon_credits(credit_amount, max_price_per_credit, min_price_per_credit, payment_method) → search offers\n"
             "2) calculate_negotiation(offers, requested_credits) → compute best deal\n"
             "3) list_offers(limit) → show current top offers\n"
-            "4) get_company_details(company_name=?) → get company details for PaymentAgent to use\n\n"
+            "4) get_company_details(company_name=?) → get company details for PaymentAgent to use\n"
+            "5) get_registered_companies() → get list of all registered companies making carbon credits\n\n"
             "Rules:\n"
             "- You provide company and credit information only. Payment processing is handled by PaymentAgent.\n"
             "- For company lookups, use get_company_details(company_name) to resolve company details.\n"
@@ -271,6 +331,7 @@ class CarbonCreditAgent:
             FunctionTool(calculate_negotiation),
             FunctionTool(list_offers),
             FunctionTool(self.get_company_details),
+            FunctionTool(self.get_registered_companies),
         ]
 
         # Finally, create and return the LlmAgent with everything wired up
