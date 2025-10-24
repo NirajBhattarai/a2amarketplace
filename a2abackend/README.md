@@ -246,6 +246,30 @@ Agent says: Here's your wallet balance across networks...
 
 > Send 0.001 HBAR to account 0.0.123456
 Agent says: Executing HBAR transfer to account 0.0.123456...
+```
+
+## 🏢 Company Onboarding System
+
+### **Company Registration Features**
+- **KYC/AML Verification**: Automated business verification process
+- **Document Management**: Secure storage of company certificates and licenses
+- **Credit Inventory**: Real-time tracking of available carbon credits
+- **Pricing Engine**: Dynamic pricing based on market conditions
+- **Quality Assurance**: Automated verification of carbon credit authenticity
+
+### **Direct Sales Platform**
+- **Company Dashboard**: Management interface for carbon credit sellers
+- **Inventory Management**: Track credits, pricing, and sales performance
+- **Customer Portal**: B2B sales interface for corporate buyers
+- **Transaction Processing**: Secure payment with blockchain integration
+- **Reporting Suite**: Sales analytics and compliance tracking
+
+### **Marketplace Integration**
+- **Credit Categories**: Forestry, renewable energy, energy efficiency
+- **Quality Ratings**: AI-powered assessment of carbon credit quality
+- **Bulk Trading**: Large-scale corporate purchases
+- **Certification Integration**: VCS, Gold Standard, etc.
+- **Escrow Services**: Secure transaction handling
 
 > Get carbon credit forecast from IoT devices
 Agent says: Based on real-time IoT data, I predict 150 carbon credits will be generated in the next 24 hours...

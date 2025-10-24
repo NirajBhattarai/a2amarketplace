@@ -30,6 +30,13 @@ This frontend provides a comprehensive web interface for interacting with the A2
 - **Real-time Updates**: Live agent status and chat
 - **Intuitive Navigation**: Easy access to all features
 
+### 🏢 **Company Onboarding Interface**
+- **Registration Portal**: Streamlined company signup process
+- **Document Upload**: Secure file management for certificates and licenses
+- **Credit Management**: Inventory tracking and pricing tools
+- **Sales Dashboard**: Comprehensive analytics and reporting
+- **Customer Portal**: B2B interface for corporate buyers
+
 ## Getting Started
 
 ### Prerequisites
