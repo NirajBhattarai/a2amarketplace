@@ -63,8 +63,9 @@ class PrebookingAgent:
     Handles prebooking with $300 threshold for automatic vs manual approval
     """
     
-    def __init__(self, payment_agent_url: str = "http://localhost:10005"):
+    def __init__(self, payment_agent_url: str = "http://localhost:10005", iot_agent_url: str = "http://localhost:10006"):
         self.payment_agent_url = payment_agent_url
+        self.iot_agent_url = iot_agent_url
         
         # In-memory storage for prebookings (in production, use database)
         self.prebookings: Dict[str, PrebookingRecord] = {}
@@ -244,6 +245,268 @@ class PrebookingAgent:
         """Get current timestamp in ISO format."""
         return datetime.now().isoformat()
 
+    def _parse_prebooking_request(self, user_input: str) -> Dict[str, Any]:
+        """
+        Parse user input to extract company name and credit amount
+        """
+        import re
+        
+        user_input_lower = user_input.lower()
+        
+        # Extract credit amount
+        credit_amount = 1  # default
+        credit_patterns = [
+            r'(\d+)\s*credits?',
+            r'book\s*(\d+)',
+            r'prebook\s*(\d+)',
+            r'(\d+)\s*carbon\s*credits?'
+        ]
+        
+        for pattern in credit_patterns:
+            match = re.search(pattern, user_input_lower)
+            if match:
+                credit_amount = int(match.group(1))
+                break
+        
+        # Extract company name
+        company_name = None
+        
+        # Patterns for company extraction
+        company_patterns = [
+            r'from\s+([A-Za-z\s&.,]+?)(?:\s|$)',
+            r'for\s+([A-Za-z\s&.,]+?)(?:\s|$)',
+            r'with\s+([A-Za-z\s&.,]+?)(?:\s|$)',
+            r'company\s+([A-Za-z\s&.,]+?)(?:\s|$)'
+        ]
+        
+        for pattern in company_patterns:
+            match = re.search(pattern, user_input)
+            if match:
+                company_name = match.group(1).strip()
+                # Clean up common suffixes
+                company_name = re.sub(r'\s+(?:Ltd|Corp|Inc|LLC|Company)$', '', company_name)
+                break
+        
+        # If no company found, look for capitalized words
+        if not company_name:
+            words = user_input.split()
+            capitalized_words = [word for word in words if word[0].isupper() and len(word) > 2]
+            if capitalized_words:
+                # Take the first capitalized word as potential company name
+                company_name = capitalized_words[0]
+        
+        return {
+            "company_name": company_name,
+            "credit_amount": credit_amount,
+            "original_input": user_input
+        }
+
+    async def _process_payment(self, company_name: str, amount_usd: float, prebooking_id: str) -> Dict[str, Any]:
+        """
+        Process actual payment via Payment Agent
+        """
+        try:
+            # Convert USD to HBAR (simplified conversion rate)
+            hbar_amount = amount_usd / 100  # $1 = 0.01 HBAR for simulation
+            
+            # Create payment request for Payment Agent
+            payment_request = {
+                "jsonrpc": "2.0",
+                "id": f"payment_{prebooking_id}",
+                "method": "tasks/send",
+                "params": {
+                    "id": f"payment_task_{prebooking_id}",
+                    "sessionId": f"prebooking_payment_{prebooking_id}",
+                    "message": {
+                        "role": "user",
+                        "parts": [{
+                            "type": "text",
+                            "text": f"Send {hbar_amount} HBAR to account 0.0.123456 for prebooking payment to {company_name}"
+                        }]
+                    }
+                }
+            }
+            
+            logger.info(f"💳 Processing payment via Payment Agent: {hbar_amount} HBAR for {company_name}")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.payment_agent_url}/",
+                    json=payment_request,
+                    timeout=30.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "result" in data and "history" in data["result"]:
+                        # Extract payment result from response
+                        history = data["result"]["history"]
+                        if history and len(history) > 0:
+                            payment_response = history[-1]["parts"][0]["text"]
+                            
+                            # Check if payment was successful
+                            if "success" in payment_response.lower() or "completed" in payment_response.lower():
+                                return {
+                                    "success": True,
+                                    "transaction_id": f"prebooking_tx_{prebooking_id}",
+                                    "amount_hbar": hbar_amount,
+                                    "amount_usd": amount_usd,
+                                    "status": "completed",
+                                    "payment_agent_response": payment_response
+                                }
+                            else:
+                                return {
+                                    "success": False,
+                                    "error": "Payment failed",
+                                    "payment_agent_response": payment_response
+                                }
+                
+                return {
+                    "success": False,
+                    "error": "Payment agent not available",
+                    "message": "Could not process payment - Payment Agent not responding"
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Error processing payment: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Payment processing failed: {str(e)}"
+            }
+
+    async def handle_prebooking_request(self, user_input: str) -> Dict[str, Any]:
+        """
+        Handle prebooking requests with intelligent parsing
+        """
+        try:
+            # Parse the user input
+            parsed = self._parse_prebooking_request(user_input)
+            company_name = parsed["company_name"]
+            credit_amount = parsed["credit_amount"]
+            
+            logger.info(f"🔍 Parsed prebooking request: Company='{company_name}', Credits={credit_amount}")
+            
+            # If no company name found, ask user to specify
+            if not company_name:
+                return {
+                    "success": False,
+                    "error": "No company specified",
+                    "message": "Please specify a company name for the prebooking. For example: 'prebook 2 credits from GreenEarth Ltd' or 'book 1 credit for BlueSky Carbon'"
+                }
+            
+            # Create the prebooking
+            result = await self.create_prebooking(company_name, credit_amount, 24)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Error handling prebooking request: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to process prebooking request: {str(e)}"
+            }
+
+    async def _check_company_exists(self, company_name: str) -> Dict[str, Any]:
+        """
+        Check if a company exists in the registered companies list
+        by calling the IoT Carbon Agent
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.iot_agent_url}/",
+                    json={
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "tasks/send",
+                        "params": {
+                            "id": f"company_check_{datetime.now().timestamp()}",
+                            "sessionId": "prebooking_company_check",
+                            "message": {
+                                "role": "user",
+                                "parts": [{"type": "text", "text": "get_registered_companies()"}]
+                            }
+                        }
+                    },
+                    timeout=10.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "result" in data and "history" in data["result"]:
+                        # Extract company names from the response
+                        history = data["result"]["history"]
+                        if history and len(history) > 0:
+                            response_text = history[-1]["parts"][0]["text"]
+                            
+                            # Parse company names from the response
+                            import re
+                            company_names = []
+                            
+                            # Look for company names in the response
+                            if "companies" in response_text.lower():
+                                lines = response_text.split('\n')
+                                for line in lines:
+                                    # Look for company names in markdown format (e.g., **CompanyName**:)
+                                    if '**' in line and ':' in line:
+                                        # Extract company name from markdown format
+                                        match = re.search(r'\*\*([^*]+)\*\*:', line)
+                                        if match:
+                                            company_name = match.group(1).strip()
+                                            # Skip summary lines
+                                            if not company_name.lower().startswith('overall') and not company_name.lower().startswith('summary'):
+                                                company_names.append(company_name)
+                                    elif 'company_name' in line.lower():
+                                        # Extract company name from JSON format
+                                        match = re.search(r'"company_name":\s*"([^"]+)"', line)
+                                        if match:
+                                            company_names.append(match.group(1))
+                            
+                            # Check if the requested company exists
+                            company_name_lower = company_name.lower()
+                            exact_match = None
+                            similar_matches = []
+                            
+                            for registered_company in company_names:
+                                if registered_company.lower() == company_name_lower:
+                                    exact_match = registered_company
+                                    break
+                                elif company_name_lower in registered_company.lower() or registered_company.lower() in company_name_lower:
+                                    similar_matches.append(registered_company)
+                            
+                            if exact_match:
+                                return {
+                                    "exists": True,
+                                    "company_name": exact_match,
+                                    "message": f"✅ Company '{exact_match}' is registered and available for prebooking."
+                                }
+                            elif similar_matches:
+                                return {
+                                    "exists": False,
+                                    "suggestions": similar_matches,
+                                    "message": f"❌ Company '{company_name}' not found. Did you mean one of these registered companies: {', '.join(similar_matches)}?"
+                                }
+                            else:
+                                return {
+                                    "exists": False,
+                                    "suggestions": company_names,
+                                    "message": f"❌ Company '{company_name}' not found. Available companies: {', '.join(company_names) if company_names else 'No companies registered yet.'}"
+                                }
+                
+                return {
+                    "exists": False,
+                    "message": "❌ Unable to check company registration. Please try again."
+                }
+                
+        except Exception as e:
+            logger.error(f"Error checking company existence: {e}")
+            return {
+                "exists": False,
+                "message": f"❌ Error checking company registration: {str(e)}"
+            }
+
     async def create_prebooking(
         self, 
         company_name: str, 
@@ -263,6 +526,18 @@ class PrebookingAgent:
         """
         logger.info(f"🔮 Creating prebooking for {company_name}: {predicted_credits} credits")
         
+        # First, validate that the company exists
+        company_check = await self._check_company_exists(company_name)
+        if not company_check["exists"]:
+            return {
+                "success": False,
+                "error": company_check["message"],
+                "suggestions": company_check.get("suggestions", [])
+            }
+        
+        # Use the exact company name from the validation
+        validated_company_name = company_check.get("company_name", company_name)
+        
         # Calculate prepayment amount with discount
         base_price = predicted_credits * self.base_price_per_credit
         prepayment_amount = base_price * (1 - self.prepayment_discount_rate)
@@ -270,10 +545,10 @@ class PrebookingAgent:
         # Check if amount is under $300 threshold
         if prepayment_amount < self.auto_approval_threshold:
             logger.info(f"✅ Amount ${prepayment_amount:.2f} is under ${self.auto_approval_threshold} threshold - auto-approving")
-            return await self._process_auto_approval(company_name, predicted_credits, prepayment_amount, time_horizon)
+            return await self._process_auto_approval(validated_company_name, predicted_credits, prepayment_amount, time_horizon)
         else:
             logger.info(f"⚠️ Amount ${prepayment_amount:.2f} exceeds ${self.auto_approval_threshold} threshold - requires user approval")
-            return await self._request_user_approval(company_name, predicted_credits, prepayment_amount, time_horizon)
+            return await self._request_user_approval(validated_company_name, predicted_credits, prepayment_amount, time_horizon)
 
     async def _process_auto_approval(
         self, 
@@ -303,19 +578,30 @@ class PrebookingAgent:
             # Store prebooking
             self.prebookings[prebooking_id] = prebooking
             
-            # Process HBAR payment (simulate for now)
-            hbar_amount = prepayment_amount / 100  # Convert USD to HBAR (simplified)
-            memo = f"Prebooking payment for {company_name} - {predicted_credits} credits"
+            # Process actual HBAR payment via Payment Agent
+            payment_result = await self._process_payment(company_name, prepayment_amount, prebooking_id)
             
-            # For now, just simulate the payment
-            payment_result = {
-                "success": True,
-                "transaction_id": f"prebooking_tx_{prebooking_id}",
-                "amount": hbar_amount,
-                "status": "completed"
-            }
+            # Check if payment was successful
+            if not payment_result.get("success", False):
+                # Payment failed - update prebooking status
+                prebooking.status = "payment_failed"
+                self.prebookings[prebooking_id] = prebooking
+                
+                logger.error(f"❌ Payment failed for prebooking: {prebooking_id}")
+                
+                return {
+                    "success": False,
+                    "prebooking_id": prebooking_id,
+                    "company_name": company_name,
+                    "predicted_credits": predicted_credits,
+                    "prepayment_amount": prepayment_amount,
+                    "status": "payment_failed",
+                    "payment_result": payment_result,
+                    "error": "Payment processing failed",
+                    "message": f"Prebooking created but payment failed for {company_name}. Please try again or contact support."
+                }
             
-            logger.info(f"✅ Auto-approved prebooking: {prebooking_id}")
+            logger.info(f"✅ Auto-approved prebooking with successful payment: {prebooking_id}")
             
             return {
                 "success": True,
@@ -327,7 +613,7 @@ class PrebookingAgent:
                 "expires_at": prebooking.expires_at.isoformat(),
                 "status": "auto_approved",
                 "payment_result": payment_result,
-                "message": f"Prebooking auto-approved for {company_name}. Amount ${prepayment_amount:.2f} is under ${self.auto_approval_threshold} threshold."
+                "message": f"Prebooking auto-approved and payment processed for {company_name}. Amount ${prepayment_amount:.2f} is under ${self.auto_approval_threshold} threshold."
             }
             
         except Exception as e:
@@ -408,17 +694,28 @@ class PrebookingAgent:
                     "message": f"Prebooking {prebooking_id} is not pending approval"
                 }
             
-            # Process HBAR payment
-            hbar_amount = prebooking.prepayment_amount / 100  # Convert USD to HBAR (simplified)
-            memo = f"Prebooking payment for {prebooking.company_name} - {prebooking.predicted_credits} credits"
+            # Process actual HBAR payment via Payment Agent
+            payment_result = await self._process_payment(prebooking.company_name, prebooking.prepayment_amount, prebooking_id)
             
-            # For now, just simulate the payment
-            payment_result = {
-                "success": True,
-                "transaction_id": f"prebooking_tx_{prebooking_id}",
-                "amount": hbar_amount,
-                "status": "completed"
-            }
+            # Check if payment was successful
+            if not payment_result.get("success", False):
+                # Payment failed - update prebooking status
+                prebooking.status = "payment_failed"
+                self.prebookings[prebooking_id] = prebooking
+                
+                logger.error(f"❌ Payment failed for prebooking: {prebooking_id}")
+                
+                return {
+                    "success": False,
+                    "prebooking_id": prebooking_id,
+                    "company_name": prebooking.company_name,
+                    "predicted_credits": prebooking.predicted_credits,
+                    "prepayment_amount": prebooking.prepayment_amount,
+                    "status": "payment_failed",
+                    "payment_result": payment_result,
+                    "error": "Payment processing failed",
+                    "message": f"Prebooking approved but payment failed for {prebooking.company_name}. Please try again or contact support."
+                }
             
             # Update prebooking status
             prebooking.status = "confirmed"
@@ -433,7 +730,7 @@ class PrebookingAgent:
                 "prepayment_amount": prebooking.prepayment_amount,
                 "status": "confirmed",
                 "payment_result": payment_result,
-                "message": f"Prebooking approved and payment processed for {prebooking.company_name}"
+                "message": f"Prebooking approved and real HBAR payment processed for {prebooking.company_name}. Transaction ID: {payment_result.get('transaction_id', 'N/A')}"
             }
             
         except Exception as e:
@@ -500,10 +797,18 @@ class PrebookingAgent:
             "You are a Carbon Credit Prebooking Agent. Your role is to help companies "
             "prebook carbon credits with intelligent approval logic.\n\n"
             "You have the following capabilities:\n"
-            "1) create_prebooking(company_name, predicted_credits, time_horizon) → Create new prebooking\n"
-            "2) approve_prebooking(prebooking_id) → Approve a pending prebooking\n"
-            "3) get_prebooking_status(prebooking_id) → Check status of specific prebooking\n"
-            "4) list_prebookings(company_name) → List all prebookings for a company\n\n"
+            "1) handle_prebooking_request(user_input) → Parse and process prebooking requests\n"
+            "2) create_prebooking(company_name, predicted_credits, time_horizon) → Create new prebooking\n"
+            "3) approve_prebooking(prebooking_id) → Approve a pending prebooking\n"
+            "4) get_prebooking_status(prebooking_id) → Check status of specific prebooking\n"
+            "5) list_prebookings(company_name) → List all prebookings for a company\n\n"
+            "IMPORTANT PARSING RULES:\n"
+            "- When user says 'prebook X credits from CompanyName', extract CompanyName and X\n"
+            "- When user says 'book X credits for CompanyName', extract CompanyName and X\n"
+            "- When user says 'create prebooking for CompanyName', extract CompanyName and use default 1 credit\n"
+            "- If no company name is specified, ask the user to specify a company\n"
+            "- If no credit amount is specified, use default 1 credit\n"
+            "- Company names should be exact matches to registered companies\n\n"
             "Prebooking Logic:\n"
             "- Amounts under $300: Automatically approved and processed\n"
             "- Amounts over $300: Require user confirmation before processing\n"
@@ -524,6 +829,7 @@ class PrebookingAgent:
             FunctionTool(self.approve_prebooking),
             FunctionTool(self.get_prebooking_status),
             FunctionTool(self.list_prebookings),
+            FunctionTool(self.handle_prebooking_request),
         ]
         
         # Create the LLM agent

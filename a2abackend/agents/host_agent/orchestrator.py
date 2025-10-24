@@ -155,7 +155,11 @@ class OrchestratorAgent:
 
         lines.append("You are an Orchestrator. Use tools to delegate user intents to child agents.\n")
         lines.append("Tools:\n- _list_agents() -> list available child agents\n- _delegate_task(agent_name, message) -> send a text command to that agent\n")
-        lines.append("IMPORTANT: For carbon credit purchases, ALWAYS delegate to PaymentAgent using _delegate_task('PaymentAgent', 'buy_carbon_credits(amount=X)') - do NOT ask for company names, let PaymentAgent handle it.\n")
+        lines.append("IMPORTANT ROUTING RULES:\n")
+        lines.append("- For carbon credit purchases ('buy', 'purchase', 'get'): delegate to PaymentAgent\n")
+        lines.append("- For FUTURE carbon credit purchases ('prebook', 'create prebooking'): delegate to PrebookingAgent\n")
+        lines.append("- PaymentAgent handles immediate purchases with real blockchain transactions\n")
+        lines.append("- PrebookingAgent handles future purchases with approval workflows\n")
 
         # Agent-specific routing guidance
         lines.append("Routing rules (auto-choose agent; do not ask for data that child agents can derive):")
@@ -187,6 +191,13 @@ class OrchestratorAgent:
             lines.append("  * Device status: 'show IoT device status' -> delegate 'get_device_status()'.")
             lines.append("  * Trends: 'analyze carbon sequestration trends' -> delegate 'analyze_sequestration_trends()'.")
             lines.append("  * Company advice: 'help me prepare for carbon credits' -> delegate 'get_company_preparation_advice()'.")
+            lines.append("  * Company registration: 'show registered companies', 'list companies making carbon credits' -> delegate 'get_registered_companies()'.")
+            lines.append("  * Company details: 'which companies are registered', 'show all companies' -> delegate 'get_registered_companies()'.")
+        if "PrebookingAgent" in names:
+            lines.append("- Carbon credit prebooking -> PrebookingAgent:")
+            lines.append("  * Prebooking requests: 'prebook X credits from CompanyName', 'create prebooking for CompanyName' -> delegate text unchanged.")
+            lines.append("  * Prebooking management: 'list prebookings', 'get prebooking status', 'approve prebooking' -> delegate text unchanged.")
+            lines.append("  * Let PrebookingAgent handle company validation and suggestions internally.")
         if "AutomationAgent" in names:
             lines.append("- Automation and workflows -> AutomationAgent:")
             lines.append("  * Rule management: 'list automation rules', 'enable automation', 'disable automation' -> delegate text unchanged.")
@@ -240,6 +251,7 @@ class OrchestratorAgent:
         if child_task.history and len(child_task.history) > 1:
             return child_task.history[-1].parts[0].text
         return ""
+
 
 
     async def invoke(self, query: str, session_id: str) -> str:

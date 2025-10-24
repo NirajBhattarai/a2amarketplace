@@ -109,6 +109,7 @@ class IoTCarbonAgent:
         - get_company_preparation_advice(): Get advice for companies preparing for carbon credits
         - get_mqtt_forecast(): Get carbon credit forecast directly from MQTT data
         - get_recent_alerts(): Get recent alerts from IoT devices
+        - get_registered_companies(): Get list of all registered companies making carbon credits
         
         Focus on real-time analysis and prediction to help companies prepare for 
         their carbon credit needs based on actual IoT device performance.
@@ -123,6 +124,7 @@ class IoTCarbonAgent:
             FunctionTool(self.get_company_preparation_advice),
             FunctionTool(self.get_mqtt_forecast),
             FunctionTool(self.get_recent_alerts),
+            FunctionTool(self.get_registered_companies),
         ]
 
         return LlmAgent(
@@ -847,6 +849,103 @@ class IoTCarbonAgent:
         except Exception as e:
             logger.error(f"Error getting recent alerts: {e}")
             return {"error": f"Failed to get recent alerts: {str(e)}"}
+
+    async def get_registered_companies(self) -> Dict[str, Any]:
+        """
+        🏢 Get list of all registered companies making carbon credits
+        """
+        try:
+            if not self.device_data:
+                return {
+                    "status": "no_companies",
+                    "message": "No companies currently registered for carbon credit generation",
+                    "mqtt_connected": self.mqtt_connected,
+                    "companies": []
+                }
+            
+            # Extract unique companies from device data
+            companies = {}
+            now = datetime.now()
+            
+            for device_mac, data in self.device_data.items():
+                company_name = data["company_name"]
+                
+                if company_name not in companies:
+                    companies[company_name] = {
+                        "company_name": company_name,
+                        "devices": [],
+                        "total_credits": 0,
+                        "total_emissions": 0,
+                        "net_sequestration": 0,
+                        "active_devices": 0,
+                        "inactive_devices": 0,
+                        "last_activity": None
+                    }
+                
+                # Calculate device status
+                age_seconds = (now - data["last_update"]).total_seconds()
+                device_status = "active" if age_seconds < 300 else "inactive"
+                
+                # Add device info
+                device_info = {
+                    "device_mac": device_mac,
+                    "device_ip": data["device_ip"],
+                    "status": device_status,
+                    "carbon_credits": data["carbon_credits"],
+                    "emissions": data["emissions"],
+                    "avg_co2": data["avg_co2"],
+                    "avg_humidity": data["avg_humidity"],
+                    "last_update": data["last_update"].isoformat(),
+                    "age_seconds": round(age_seconds, 1)
+                }
+                
+                companies[company_name]["devices"].append(device_info)
+                companies[company_name]["total_credits"] += data["carbon_credits"]
+                companies[company_name]["total_emissions"] += data["emissions"]
+                
+                if device_status == "active":
+                    companies[company_name]["active_devices"] += 1
+                else:
+                    companies[company_name]["inactive_devices"] += 1
+                
+                # Update last activity
+                if companies[company_name]["last_activity"] is None or data["last_update"] > companies[company_name]["last_activity"]:
+                    companies[company_name]["last_activity"] = data["last_update"]
+            
+            # Calculate net sequestration for each company
+            for company_name in companies:
+                companies[company_name]["net_sequestration"] = companies[company_name]["total_credits"] - companies[company_name]["total_emissions"]
+                companies[company_name]["last_activity"] = companies[company_name]["last_activity"].isoformat()
+            
+            # Convert to list and sort by total credits
+            company_list = list(companies.values())
+            company_list.sort(key=lambda x: x["total_credits"], reverse=True)
+            
+            # Calculate totals
+            total_companies = len(company_list)
+            total_active_devices = sum(company["active_devices"] for company in company_list)
+            total_credits = sum(company["total_credits"] for company in company_list)
+            total_emissions = sum(company["total_emissions"] for company in company_list)
+            net_sequestration = total_credits - total_emissions
+            
+            return {
+                "status": "success",
+                "mqtt_connected": self.mqtt_connected,
+                "summary": {
+                    "total_companies": total_companies,
+                    "total_active_devices": total_active_devices,
+                    "total_credits": round(total_credits, 2),
+                    "total_emissions": round(total_emissions, 2),
+                    "net_sequestration": round(net_sequestration, 2),
+                    "overall_offset": net_sequestration >= 0
+                },
+                "companies": company_list,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting registered companies: {e}")
+            return {"error": f"Failed to get registered companies: {str(e)}"}
 
     def _calculate_trend(self, values: List[float]) -> float:
         """Calculate linear trend from a list of values"""

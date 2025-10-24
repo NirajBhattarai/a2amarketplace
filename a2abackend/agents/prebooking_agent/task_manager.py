@@ -17,9 +17,12 @@ class PrebookingTaskManager(InMemoryTaskManager):
     Handles A2A JSON-RPC requests for carbon credit prebooking
     """
     
-    def __init__(self):
+    def __init__(self, iot_agent_url: str = "http://localhost:10006", payment_agent_url: str = "http://localhost:10005"):
         super().__init__()
-        self.prebooking_agent = PrebookingAgent()
+        self.prebooking_agent = PrebookingAgent(
+            payment_agent_url=payment_agent_url,
+            iot_agent_url=iot_agent_url
+        )
         logger.info("🔮 PrebookingTaskManager initialized")
 
     def _get_user_query(self, request: SendTaskRequest) -> str:

@@ -22,6 +22,7 @@ This backend implements a sophisticated **Agent-to-Agent (A2A) system** with:
 | **PaymentAgent** | 10005 | Blockchain payments | Real HBAR/ETH/MATIC transactions |
 | **IoTCarbonAgent** | 10006 | IoT processing | Real-time MQTT data, carbon predictions |
 | **PrebookingAgent** | 10007 | Prebooking | IoT-based prebooking with prepayment |
+| **HederaPaymentAgent** | 10009 | Hedera payments | Autonomous HBAR transfers using Hedera Agent Kit |
 
 ## 🏗️ Architecture
 
@@ -136,6 +137,7 @@ python -m agents.payment_agent --host localhost --port 10005
 python -m agents.iot_carbon_agent --host localhost --port 10006
 python -m agents.prebooking_agent --host localhost --port 10007
 python -m agents.host_agent.entry --host localhost --port 10002
+cd agents/hedera_payment_agent && npm run a2a:hedera-payment
 ```
 
 ## 🔧 Manual Setup (Step by Step)
@@ -225,6 +227,19 @@ python3 -m agents.prebooking_agent \
   --host localhost --port 10007
 ```
 
+**Start the Instant Carbon Agent**
+```bash
+python3 -m agents.instant_carbon_agent \
+  --host localhost --port 10008
+```
+
+**Start the Hedera Payment Agent**
+```bash
+cd agents/hedera_payment_agent
+npm install
+npm run a2a:hedera-payment
+```
+
 **Launch the CLI (cmd.py)**
 ```bash
 python3 -m app.cmd.cmd --agent http://localhost:10002
@@ -246,6 +261,9 @@ Agent says: Here's your wallet balance across networks...
 
 > Send 0.001 HBAR to account 0.0.123456
 Agent says: Executing HBAR transfer to account 0.0.123456...
+
+> Transfer 1.5 HBAR to 0.0.789012
+Agent says: Processing autonomous HBAR transfer using Hedera Agent Kit...
 ```
 
 ## 🏢 Company Onboarding System
@@ -292,6 +310,7 @@ Agent says: I'll create a prebooking for TechCorp based on IoT predictions with 
    - CarbonCreditAgent negotiates carbon credit purchases from database marketplace.
    - WalletBalanceAgent checks wallet balances across Hedera, Ethereum, and Polygon networks.
    - PaymentAgent executes real blockchain transactions across Hedera, Ethereum, and Polygon networks.
+   - HederaPaymentAgent provides autonomous HBAR transfers using Hedera Agent Kit with natural language processing.
    - IoTCarbonAgent processes real-time MQTT data from IoT devices and provides carbon credit predictions.
    - PrebookingAgent creates carbon credit prebookings based on IoT predictions with prepayment functionality.
 4. **JSON-RPC**: All communication uses A2A JSON-RPC 2.0 over HTTP via Starlette & Uvicorn.
@@ -322,6 +341,13 @@ The system integrates with IoT carbon sequestration devices that publish data vi
 - **Company-Specific Prebookings**: Creates prebookings for specific companies
 - **Confidence-Based Validation**: Only creates prebookings when prediction confidence > 70%
 
+### **Instant Carbon Agent Features**
+- **Immediate Purchases**: Processes carbon credit purchases instantly without approval
+- **Real Blockchain Transactions**: Uses Hedera Payment Agent for actual HBAR transfers
+- **Company Validation**: Validates companies through IoT Carbon Agent before purchase
+- **Transaction Tracking**: Records all purchases with real blockchain transaction IDs
+- **Purchase History**: Maintains complete purchase history with status tracking
+
 ### **Simulation & Testing**
 ```bash
 # Simulate IoT data from 3 companies
@@ -338,6 +364,12 @@ curl -X POST http://localhost:10007/ -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "id": "test", "method": "tasks/send", 
        "params": {"id": "test", "sessionId": "test", 
                  "message": {"role": "user", "parts": [{"type": "text", "text": "Create prebooking for TechCorp"}]}}}'
+
+# Test Instant Carbon Agent
+curl -X POST http://localhost:10008/ -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": "test", "method": "tasks/send", 
+       "params": {"id": "test", "sessionId": "test", 
+                 "message": {"role": "user", "parts": [{"type": "text", "text": "Buy 10 credits from EcoFuture Corp"}]}}}'
 ```
 
 ---

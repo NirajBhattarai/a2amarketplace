@@ -59,7 +59,9 @@ def main(host: str, port: int, mqtt_broker: str, mqtt_port: int):
             "Predict carbon credits for next 24 hours",
             "Get device status and performance",
             "Analyze carbon sequestration trends",
-            "Help me prepare for carbon credit needs"
+            "Help me prepare for carbon credit needs",
+            "Show me all registered companies making carbon credits",
+            "List companies with their carbon credit generation"
         ]
     )
     

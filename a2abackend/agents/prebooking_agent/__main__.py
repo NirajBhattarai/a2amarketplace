@@ -58,8 +58,11 @@ def main():
         skills=[skill]
     )
     
-    # Create task manager
-    task_manager = PrebookingTaskManager()
+    # Create task manager with IoT agent URL
+    task_manager = PrebookingTaskManager(
+        iot_agent_url=args.iot_agent_url,
+        payment_agent_url=args.payment_agent_url
+    )
     
     # Create and start server
     server = A2AServer(

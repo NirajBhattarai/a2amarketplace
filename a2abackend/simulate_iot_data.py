@@ -18,22 +18,34 @@ TOPIC_PREFIX = "carbon_sequestration"
 # Multiple companies simulation
 COMPANIES = [
     {
-        "name": "TechCorp",
+        "name": "GreenEarth Ltd",
         "device_id": "sim_device_001",
         "device_ip": "192.168.1.100",
-        "device_mac": "AA:BB:CC:DD:EE:FF"
+        "device_mac": "AA:BB:CC:DD:EE:FF",
+        "address": "123 Forest Road",
+        "website": "https://greenearth.example",
+        "region": "USA",
+        "hedera_account": "0.0.111111"
     },
     {
-        "name": "GreenEnergy",
+        "name": "BlueSky Carbon",
         "device_id": "sim_device_002", 
         "device_ip": "192.168.1.101",
-        "device_mac": "BB:CC:DD:EE:FF:AA"
+        "device_mac": "BB:CC:DD:EE:FF:AA",
+        "address": "456 Sky Ave",
+        "website": "https://bluesky.example",
+        "region": "EU",
+        "hedera_account": "0.0.222222"
     },
     {
-        "name": "EcoSolutions",
+        "name": "EcoFuture Corp",
         "device_id": "sim_device_003",
         "device_ip": "192.168.1.102", 
-        "device_mac": "CC:DD:EE:FF:AA:BB"
+        "device_mac": "CC:DD:EE:FF:AA:BB",
+        "address": "789 Future Blvd",
+        "website": "https://ecofuture.example",
+        "region": "APAC",
+        "hedera_account": "0.0.333333"
     }
 ]
 

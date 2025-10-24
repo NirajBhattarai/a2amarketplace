@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
     const taskId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const requestId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     
-    // Always generate a unique session ID to prevent conflicts
-    const uniqueSessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    // Use the session ID from the frontend to maintain conversation continuity
+    const sessionIdToUse = sessionId || Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     
     // Create the JSON-RPC payload exactly like the Python app does
     const payload = {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       method: "tasks/send",
       params: {
         id: taskId,
-        sessionId: uniqueSessionId,
+        sessionId: sessionIdToUse,
         message: {
           role: "user",
           parts: [
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    console.log('🆔 Unique Session ID:', uniqueSessionId);
+    console.log('🆔 Session ID being used:', sessionIdToUse);
     console.log('📤 Sending JSON-RPC request to:', targetUrl);
     console.log('Payload:', JSON.stringify(payload, null, 2));
 

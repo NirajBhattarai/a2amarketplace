@@ -28,7 +28,12 @@ export function AgentChat({}: AgentChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId] = useState(() => Math.random().toString(36).substring(2, 15));
+  const [sessionId] = useState(() => {
+    // Generate a more robust session ID
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 15);
+    return `session_${timestamp}_${random}`;
+  });
   const [showHistory, setShowHistory] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ConversationItem[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -58,6 +63,7 @@ export function AgentChat({}: AgentChatProps) {
     try {
       console.log('📤 Sending message:', message);
       console.log('📤 Session ID:', sessionId);
+      console.log('📤 Session ID type:', typeof sessionId);
       
       const response = await fetch('/api/agent', {
         method: 'POST',
@@ -165,6 +171,10 @@ export function AgentChat({}: AgentChatProps) {
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                 <span>Ready</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                <span>Session: {sessionId.substring(0, 8)}...</span>
               </div>
             </div>
           </div>
