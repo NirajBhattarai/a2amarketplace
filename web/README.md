@@ -1,16 +1,34 @@
-# A2A Web Frontend
+# 💻 A2A Web Frontend
 
-A Next.js frontend application that provides a web interface for interacting with A2A (Agent-to-Agent) backend services.
+A modern Next.js frontend for the **A2A Carbon Credit Marketplace** featuring real-time chat interface, agent monitoring, and blockchain payment processing.
 
-## Features
+## 🎯 Overview
 
-- 🤖 **Multi-Agent Support**: Interact with TellTimeAgent, GreetingAgent, CarbonCreditAgent, WalletBalanceAgent, PaymentAgent, and OrchestratorAgent
-- 💬 **Real-time Chat Interface**: Clean, modern chat UI for agent conversations
-- 🔄 **Session Management**: Maintain conversation context across messages
-- ⚡ **Quick Actions**: Pre-defined buttons for common queries
-- 📱 **Responsive Design**: Works on desktop and mobile devices
-- 💰 **Blockchain Payments**: Dedicated payment interface for real transactions
-- 🔗 **Multi-Network Support**: Hedera HBAR, Ethereum ETH, Polygon MATIC transfers
+This frontend provides a comprehensive web interface for interacting with the A2A multi-agent system, featuring:
+- **Real-time chat** with AI agents
+- **Live agent monitoring** with status indicators
+- **Blockchain payment interface** for real transactions
+- **Responsive design** optimized for all devices
+
+## ✨ Key Features
+
+### 🤖 **Multi-Agent Interface**
+- **Real-time Chat**: Seamless conversation with all 8 AI agents
+- **Agent Status Monitoring**: Live indicators for agent availability
+- **Session Management**: Context-aware conversations across agents
+- **Quick Actions**: Pre-defined buttons for common queries
+
+### 💰 **Blockchain Integration**
+- **Payment Interface**: Dedicated UI for blockchain transactions
+- **Multi-Network Support**: Hedera HBAR, Ethereum ETH, Polygon MATIC
+- **Transaction Tracking**: Real-time status monitoring
+- **Address Validation**: Smart validation for different networks
+
+### 🎨 **Modern UI/UX**
+- **Responsive Design**: Works on desktop, tablet, and mobile
+- **Tailwind CSS**: Modern, clean styling
+- **Real-time Updates**: Live agent status and chat
+- **Intuitive Navigation**: Easy access to all features
 
 ## Getting Started
 

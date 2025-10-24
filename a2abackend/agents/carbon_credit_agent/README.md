@@ -1,14 +1,29 @@
-# Carbon Credit Negotiation Agent
+# 🌱 Carbon Credit Agent
 
-A Python-based AI agent that negotiates carbon credit purchases by finding the best deals from marketplace companies using Google's ADK and Gemini model.
+A sophisticated **carbon credit marketplace agent** that negotiates purchases, analyzes pricing, and manages carbon credit transactions using PostgreSQL database integration.
 
-## Features
+## 🎯 Overview
 
-- **Database Integration**: Connects to PostgreSQL database to fetch available carbon credit offers
-- **Intelligent Negotiation**: Uses Gemini LLM to understand user requests and find optimal deals
-- **Price Analysis**: Calculates best offers based on user criteria (amount, price limits, payment methods)
-- **A2A Protocol**: Fully compatible with Agent-to-Agent communication protocol
-- **Streaming Support**: Supports real-time response streaming
+This agent provides **intelligent carbon credit marketplace management** with:
+- **Database integration** with PostgreSQL for carbon credit offers
+- **AI-powered negotiation** using Gemini LLM for optimal deals
+- **Price analysis** and recommendation engine
+- **Company management** and offer tracking
+- **A2A protocol integration** with the orchestrator system
+
+## ✨ Key Features
+
+### 🏢 **Marketplace Management**
+- **Company Database**: Manage carbon credit companies and offers
+- **Offer Tracking**: Track available credits, prices, and availability
+- **Price Analysis**: Intelligent pricing recommendations
+- **Negotiation Engine**: AI-powered deal optimization
+
+### 💰 **Transaction Processing**
+- **Purchase Management**: Handle carbon credit purchases
+- **Payment Integration**: Support for multiple payment methods
+- **Transaction Recording**: Complete purchase history tracking
+- **Settlement Processing**: Automated settlement workflows
 
 ## Architecture
 

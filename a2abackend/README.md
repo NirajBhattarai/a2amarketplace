@@ -1,129 +1,169 @@
-# 🌱 Carbon Credit Marketplace & IoT Multi-Agent System – A2A with Google ADK
+# 🤖 A2A Backend - Multi-Agent System
 
-Welcome to the **Carbon Credit Marketplace & IoT Multi-Agent System** — a comprehensive Agent2Agent (A2A) implementation using Google's [Agent Development Kit (ADK)](https://github.com/google/agent-development-kit) for carbon credit trading with real-time IoT data integration.
+The Python backend for the **A2A Carbon Credit Marketplace** featuring 8 specialized AI agents powered by Google's Agent Development Kit (ADK) and Gemini LLM.
 
-This system demonstrates how to build, serve, and interact with seven A2A agents:
-1. **TellTimeAgent** – replies with the current time.
-2. **GreetingAgent** – fetches the time and generates a poetic greeting.
-3. **CarbonCreditAgent** – negotiates carbon credit purchases from marketplace companies.
-4. **WalletBalanceAgent** – checks wallet balances across Hedera, Ethereum, and Polygon networks.
-5. **PaymentAgent** – executes real blockchain transactions across Hedera, Ethereum, and Polygon networks.
-6. **IoTCarbonAgent** – processes real-time IoT carbon sequestration data and provides predictions.
-7. **PrebookingAgent** – creates carbon credit prebookings based on IoT predictions with prepayment.
-8. **OrchestratorAgent** – routes requests to the appropriate child agent.
+## 🎯 Overview
 
-All agents work together seamlessly via A2A discovery and JSON-RPC, with real-time IoT data integration for carbon credit forecasting and prebooking.
+This backend implements a sophisticated **Agent-to-Agent (A2A) system** with:
+- **8 Specialized Agents** for different carbon credit marketplace functions
+- **Real-time IoT Integration** for carbon sequestration monitoring
+- **Blockchain Payment Processing** across multiple networks
+- **Intelligent Orchestration** using Gemini LLM for task routing
 
----
+## 🤖 Agent Ecosystem
 
-## 📦 Project Structure
+| Agent | Port | Purpose | Key Capabilities |
+|-------|------|---------|------------------|
+| **OrchestratorAgent** | 10002 | Central routing hub | LLM-based task delegation, agent discovery |
+| **TellTimeAgent** | 10000 | Time service | Current time queries |
+| **GreetingAgent** | 10001 | Poetic greetings | Time-aware greeting generation |
+| **CarbonCreditAgent** | 10003 | Marketplace | Database integration, pricing, negotiations |
+| **WalletBalanceAgent** | 10004 | Balance checking | Multi-network wallet support |
+| **PaymentAgent** | 10005 | Blockchain payments | Real HBAR/ETH/MATIC transactions |
+| **IoTCarbonAgent** | 10006 | IoT processing | Real-time MQTT data, carbon predictions |
+| **PrebookingAgent** | 10007 | Prebooking | IoT-based prebooking with prepayment |
 
-```bash
-version_3_multi_agent/
-├── .env                         # Your GOOGLE_API_KEY (not committed)
-├── pyproject.toml              # Dependency config
-├── README.md                   # You are reading it!
-├── app/
-│   └── cmd/
-│       └── cmd.py              # CLI to interact with the OrchestratorAgent
-├── agents/
-│   ├── tell_time_agent/
-│   │   ├── __main__.py         # Starts TellTimeAgent server
-│   │   ├── agent.py            # Gemini-based time agent
-│   │   └── task_manager.py     # In-memory task handler for TellTimeAgent
-│   ├── greeting_agent/
-│   │   ├── __main__.py         # Starts GreetingAgent server
-│   │   ├── agent.py            # Orchestrator that calls TellTimeAgent + LLM greeting
-│   │   └── task_manager.py     # Task handler for GreetingAgent
-│   ├── carbon_credit_agent/
-│   │   ├── __main__.py         # Starts CarbonCreditAgent server
-│   │   ├── agent.py            # Carbon credit negotiation agent with database integration
-│   │   ├── task_manager.py     # Task handler for CarbonCreditAgent
-│   │   └── README.md           # Carbon credit agent documentation
-│   ├── wallet_balance_agent/
-│   │   ├── __main__.py         # Starts WalletBalanceAgent server
-│   │   ├── agent.py            # Multi-network wallet balance checking agent
-│   │   └── task_manager.py     # Task handler for WalletBalanceAgent
-│   ├── payment_agent/
-│   │   ├── __main__.py         # Starts PaymentAgent server
-│   │   ├── agent.py            # Multi-network payment execution agent with real blockchain transactions
-│   │   ├── task_manager.py     # Task handler for PaymentAgent
-│   │   └── test_payment_agent.py # Test script for PaymentAgent
-│   ├── iot_carbon_agent/
-│   │   ├── __main__.py         # Starts IoTCarbonAgent server
-│   │   ├── agent.py            # IoT carbon sequestration data processing and prediction agent
-│   │   └── task_manager.py     # Task handler for IoTCarbonAgent
-│   ├── prebooking_agent/
-│   │   ├── __main__.py         # Starts PrebookingAgent server
-│   │   ├── agent.py            # Carbon credit prebooking agent with IoT prediction integration
-│   │   └── task_manager.py     # Task handler for PrebookingAgent
-│   └── host_agent/
-│       ├── entry.py            # CLI to start OrchestratorAgent server
-│       ├── orchestrator.py     # LLM router + TaskManager for OrchestratorAgent
-│       └── agent_connect.py    # Helper to call child A2A agents
-├── server/
-│   ├── server.py               # A2A JSON-RPC server implementation
-│   └── task_manager.py         # Base in-memory task manager interface
-└── utilities/
-    ├── discovery.py            # Finds agents via `agent_registry.json`
-    └── agent_registry.json     # List of child-agent URLs (one per line)
+## 🏗️ Architecture
+
+### Agent Communication Flow
+```
+User Request → OrchestratorAgent → Specialized Agent → Response
+     ↓              ↓                    ↓              ↓
+  Web/CLI    →  LLM Routing    →   Task Processing  →  JSON-RPC
 ```
 
----
+### Core Components
+- **OrchestratorAgent**: Central hub using Gemini LLM for intelligent routing
+- **Specialized Agents**: Domain-specific agents for carbon credits, payments, IoT
+- **JSON-RPC 2.0**: Standardized agent-to-agent communication
+- **Session Management**: Context-aware conversations across agents
 
-## 🛠️ Setup
+## 📁 Project Structure
 
-1. **Clone & navigate**
+```
+a2abackend/
+├── agents/                     # Individual agent implementations
+│   ├── host_agent/            # Orchestrator agent (central hub)
+│   │   ├── orchestrator.py    # LLM routing logic
+│   │   ├── agent_connect.py   # Agent communication helpers
+│   │   └── entry.py          # Server entry point
+│   ├── carbon_credit_agent/   # Carbon credit marketplace
+│   ├── payment_agent/         # Blockchain payment processing
+│   ├── iot_carbon_agent/      # IoT data processing
+│   ├── prebooking_agent/      # Carbon credit prebooking
+│   ├── wallet_balance_agent/  # Multi-network balance checking
+│   ├── greeting_agent/        # Poetic greeting generation
+│   └── tell_time_agent/       # Time service
+├── server/                   # A2A server infrastructure
+│   ├── server.py             # JSON-RPC server implementation
+│   └── task_manager.py       # Base task management
+├── utilities/                # Shared utilities
+│   ├── discovery.py          # Agent discovery service
+│   ├── agent_registry.json   # Agent registry configuration
+│   └── carbon_marketplace/   # Database schema and logic
+├── app/                      # CLI application
+│   └── cmd/                  # Command-line interface
+├── models/                   # Data models and schemas
+├── client/                   # A2A client library
+└── pyproject.toml           # Dependencies and configuration
+```
 
-    ```bash
-    git clone https://github.com/theailanguage/a2a_samples.git
-    cd a2a_samples/version_3_multi_agent
-    ```
+## 🚀 Quick Start
 
-2. **Create & activate a venv**
+### Prerequisites
+- **Python 3.11+** with pip
+- **PostgreSQL** database (via Docker Compose)
+- **Google API Key** for Gemini LLM
+- **Blockchain credentials** (optional for testing)
 
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    ```
+### 1. Create Virtual Environment
 
-3. **Install dependencies**
+```bash
+# Create virtual environment
+python3 -m venv venv
 
-    Using [`uv`](https://github.com/astral-sh/uv):
+# Activate virtual environment
+source venv/bin/activate  # On macOS/Linux
+# or
+venv\Scripts\activate     # On Windows
+```
 
-    ```bash
-    uv pip install .
-    ```
+### 2. Install Dependencies
 
-    Or with pip directly:
+```bash
+# Install all dependencies
+pip install -e .
 
-    ```bash
-    pip install .
-    ```
+# Or install specific dependencies
+pip install fastapi starlette uvicorn google-adk google-genai httpx psycopg2-binary pydantic python-dotenv hedera-sdk-py web3 eth-account requests paho-mqtt
+```
 
-4. **Set your API key**
+### 3. Environment Configuration
 
-    Create `.env` at the project root:
-    ```bash
-    echo "GOOGLE_API_KEY=your_api_key_here" > .env
-    ```
+```bash
+# Copy environment template
+cp env.example .env
 
-5. **Set up database (for CarbonCreditAgent)**
+# Edit .env with your credentials:
+# GOOGLE_API_KEY=your_gemini_api_key
+# CARBON_MARKETPLACE_DATABASE_URL=postgresql://postgres:password@localhost:5432/carbon_credit_iot
+# HEDERA_ACCOUNT_ID=your_hedera_account
+# HEDERA_PRIVATE_KEY=your_hedera_private_key
+```
 
-    Add your PostgreSQL database URL to `.env`:
-    ```bash
-    echo "CARBON_MARKETPLACE_DATABASE_URL=postgresql://username:password@localhost:5432/carbon_credit_iot" >> .env
-    ```
+### 4. Start Infrastructure
 
-6. **Set up blockchain credentials (for PaymentAgent)**
+```bash
+# Start PostgreSQL, Redis, MQTT broker
+docker-compose up -d
 
-    Add your blockchain credentials to `.env`:
-    ```bash
-    echo "HEDERA_ACCOUNT_ID=your_hedera_account_id" >> .env
-    echo "HEDERA_PRIVATE_KEY=your_hedera_private_key" >> .env
-    echo "ETHEREUM_PRIVATE_KEY=your_ethereum_private_key" >> .env
-    echo "POLYGON_PRIVATE_KEY=your_polygon_private_key" >> .env
-    ```
+# Verify services
+docker-compose ps
+```
+
+### 5. Start All Agents
+
+```bash
+# Start all agents at once (recommended)
+./start_all_agents.sh
+
+# Or start individually (make sure venv is activated):
+python -m agents.tell_time_agent --host localhost --port 10000
+python -m agents.greeting_agent --host localhost --port 10001
+python -m agents.carbon_credit_agent --host localhost --port 10003
+python -m agents.wallet_balance_agent --host localhost --port 10004
+python -m agents.payment_agent --host localhost --port 10005
+python -m agents.iot_carbon_agent --host localhost --port 10006
+python -m agents.prebooking_agent --host localhost --port 10007
+python -m agents.host_agent.entry --host localhost --port 10002
+```
+
+## 🔧 Manual Setup (Step by Step)
+
+### Complete Setup Process
+
+```bash
+# 1. Navigate to backend directory
+cd a2abackend
+
+# 2. Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # macOS/Linux
+# venv\Scripts\activate   # Windows
+
+# 3. Install dependencies
+pip install -e .
+
+# 4. Set up environment variables
+cp env.example .env
+# Edit .env file with your API keys
+
+# 5. Start infrastructure (in another terminal)
+docker-compose up -d
+
+# 6. Start agents
+./start_all_agents.sh
+```
 
 ---
 

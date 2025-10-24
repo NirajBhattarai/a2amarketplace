@@ -1,15 +1,32 @@
 # 💸 Payment Agent
 
-A multi-network payment agent that supports sending payments across Hedera, Ethereum, and Polygon networks with native currency and ERC20 token support.
+A comprehensive **multi-network payment processing agent** supporting real blockchain transactions across Hedera, Ethereum, and Polygon networks.
 
-## 🌟 Features
+## 🎯 Overview
 
-- **Multi-Network Support**: Send payments across Hedera, Ethereum, and Polygon networks
-- **Native Currency Support**: HBAR (Hedera), ETH (Ethereum), MATIC (Polygon)
-- **ERC20 Token Support**: USDC, USDT, and other popular tokens
-- **Address Validation**: Validates payment address formats for each network
-- **Transaction Tracking**: Provides transaction IDs and status checking
-- **Intelligent Parsing**: Automatically detects network from payment requests
+This agent provides **real blockchain payment processing** with:
+- **Multi-network support** for Hedera HBAR, Ethereum ETH, and Polygon MATIC
+- **Real transaction execution** (not simulations)
+- **Native currency and ERC20 token** support
+- **Intelligent address validation** and network detection
+- **Transaction tracking** and status monitoring
+- **A2A protocol integration** with the orchestrator system
+
+## ✨ Key Features
+
+### 🔗 **Multi-Network Payments**
+- **Hedera HBAR**: Real HBAR transfers with transaction IDs
+- **Ethereum ETH**: ETH transfers with gas optimization
+- **Polygon MATIC**: MATIC transfers with low fees
+- **ERC20 Tokens**: USDC, USDT, and other popular tokens
+- **Automatic Network Detection**: Smart detection from address format
+
+### 🔒 **Transaction Security**
+- **Address Validation**: Network-specific address format validation
+- **Amount Verification**: Automatic amount validation and checks
+- **Transaction Confirmation**: Real transaction IDs and confirmations
+- **Status Tracking**: Real-time transaction status monitoring
+- **Error Handling**: Comprehensive error handling and recovery
 
 ## 🔧 Supported Networks
 

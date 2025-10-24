@@ -1,15 +1,29 @@
 # 💰 Wallet Balance Agent
 
-A multi-network wallet balance checking agent that supports Hedera, Ethereum, and Polygon networks with native currency and ERC20 token support.
+A comprehensive **multi-network wallet balance checking agent** supporting Hedera, Ethereum, and Polygon networks with native currencies and ERC20 tokens.
 
-## 🌟 Features
+## 🎯 Overview
 
-- **Multi-Network Support**: Check balances across Hedera, Ethereum, and Polygon networks
-- **Native Currency Support**: HBAR (Hedera), ETH (Ethereum), MATIC (Polygon)
-- **ERC20 Token Support**: USDC, USDT, and other popular tokens
-- **Address Validation**: Validates wallet address formats for each network
-- **USD Value Conversion**: Shows approximate USD values for all balances
-- **Intelligent Parsing**: Automatically detects network from wallet address format
+This agent provides **unified wallet balance checking** across multiple blockchain networks with:
+- **Multi-network support** for Hedera, Ethereum, and Polygon
+- **Native currency and ERC20 token** balance checking
+- **Intelligent address validation** and network detection
+- **USD value conversion** for all balances
+- **Real-time balance updates** and status monitoring
+
+## ✨ Key Features
+
+### 🌐 **Multi-Network Support**
+- **Hedera Network**: HBAR balances with account ID validation
+- **Ethereum Mainnet**: ETH and ERC20 tokens (USDC, USDT, WETH)
+- **Polygon Network**: MATIC and ERC20 tokens (USDC, USDT, WMATIC)
+- **Automatic Network Detection**: Smart detection from address format
+
+### 💱 **Advanced Balance Features**
+- **USD Value Conversion**: Real-time USD values for all balances
+- **Token Support**: Native currencies and popular ERC20 tokens
+- **Address Validation**: Network-specific address format validation
+- **Comprehensive Reporting**: Detailed balance breakdowns by network
 
 ## 🔧 Supported Networks
 

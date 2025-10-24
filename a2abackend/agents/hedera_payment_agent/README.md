@@ -1,14 +1,28 @@
-# Hedera Payment Agent
+# 🔗 Hedera Payment Agent
 
-A TypeScript-based A2A (Agent-to-Agent) Hedera payment agent that provides autonomous HBAR transfer capabilities using the Hedera Agent Kit.
+A TypeScript-based A2A agent specializing in **autonomous HBAR transfers** using the Hedera Agent Kit with natural language processing capabilities.
 
-## Features
+## 🎯 Overview
 
-- **Autonomous HBAR Transfers**: Execute HBAR transfers automatically using Hedera Agent Kit
-- **Natural Language Processing**: Understand payment requests in natural language
-- **Account Balance Queries**: Check Hedera account balances
-- **Transaction Status**: Query transaction status and history
-- **A2A Integration**: Compatible with the A2A orchestrator system
+This agent provides **autonomous Hedera payment processing** with:
+- **Natural language understanding** for payment requests
+- **Autonomous transaction execution** using Hedera Agent Kit
+- **Real-time balance checking** and transaction status
+- **A2A protocol integration** with the orchestrator system
+
+## ✨ Key Features
+
+### 🔄 **Autonomous Payments**
+- **Automatic HBAR Transfers**: Execute transfers without manual intervention
+- **Natural Language Processing**: Understand payment requests in plain English
+- **Transaction Validation**: Automatic validation of amounts and recipients
+- **Status Tracking**: Real-time transaction status monitoring
+
+### 🔍 **Account Management**
+- **Balance Queries**: Check Hedera account balances
+- **Transaction History**: Query past transactions
+- **Account Validation**: Verify recipient account IDs
+- **Real-time Updates**: Live balance and status updates
 
 ## Prerequisites
 
