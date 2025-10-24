@@ -165,6 +165,11 @@ class OrchestratorAgent:
             lines.append("- Greetings/salutations -> GreetingAgent.")
         if "WalletBalanceAgent" in names:
             lines.append("- 'Check my wallet balance' or addresses -> WalletBalanceAgent. It uses public testnet RPCs; no API keys required.")
+        if "Hedera Payment Agent" in names:
+            lines.append("- Hedera HBAR transfers -> Hedera Payment Agent:")
+            lines.append("  * When user mentions 'hedera payment agent', 'hedera payment', 'hedera transfer', or 'HBAR transfer' -> delegate to Hedera Payment Agent.")
+            lines.append("  * Direct HBAR transfers: 'Send X HBAR to account 0.0.123' -> delegate to Hedera Payment Agent.")
+            lines.append("  * Balance checks: 'Check my HBAR balance' -> delegate to Hedera Payment Agent.")
         if "PaymentAgent" in names:
             lines.append("- Direct HBAR/ETH/MATIC transfers -> PaymentAgent (text commands like 'Send 1 HBAR to account 0.0.123').")
             lines.append("- Carbon credit purchases -> PaymentAgent:")
