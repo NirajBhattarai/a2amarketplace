@@ -26,6 +26,21 @@ This system combines **Google's Agent Development Kit (ADK)** with **real-time I
                         └─────────────────┘
 ```
 
+### **Data Flow Architecture**
+
+This diagram illustrates the end-to-end data flow and interactions between various components of the A2A Carbon Credit Marketplace, from user request to blockchain transaction and real-time IoT monitoring.
+
+![Data Flow Architecture Diagram](assets/images/data-flow.png)
+
+**Explanation of the Flow:**
+
+*   **User Request:** A user initiates a request for carbon credits via the **Web** interface.
+*   **Orchestration:** The **Web** routes the request to the **Orchestrator** agent, which is responsible for coordinating the transaction.
+*   **Deal Finding:** The **Orchestrator** queries the **CarbonAgent** to find the best carbon credit deals by querying its internal database. The **CarbonAgent** then returns the available offers.
+*   **Payment Processing:** Upon selection, the **Orchestrator** instructs the **PaymentAgent** to process the payment. The **PaymentAgent** executes the transaction on the **Blockchain** and receives a confirmation.
+*   **Transaction Confirmation:** Once the payment is successful, the **PaymentAgent** notifies the **Orchestrator**, which then informs the **Web** interface to show a confirmation to the **User**.
+*   **Real-time Monitoring:** Concurrently, the **IoTAgent** continuously performs "Real-time monitoring" by processing sensor data and sending updates to the **CarbonAgent** to refine carbon predictions.
+
 ## 🚀 Key Features
 
 ### 🤖 **AI Agent System**
