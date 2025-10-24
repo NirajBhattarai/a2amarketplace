@@ -109,7 +109,7 @@ class IoTCarbonAgent:
         - get_company_preparation_advice(): Get advice for companies preparing for carbon credits
         - get_mqtt_forecast(): Get carbon credit forecast directly from MQTT data
         - get_recent_alerts(): Get recent alerts from IoT devices
-        - get_registered_companies(): Get list of all registered companies making carbon credits
+        - get_live_generating_companies(): Get companies currently generating carbon credits live from IoT devices
         
         Focus on real-time analysis and prediction to help companies prepare for 
         their carbon credit needs based on actual IoT device performance.
@@ -124,7 +124,7 @@ class IoTCarbonAgent:
             FunctionTool(self.get_company_preparation_advice),
             FunctionTool(self.get_mqtt_forecast),
             FunctionTool(self.get_recent_alerts),
-            FunctionTool(self.get_registered_companies),
+            FunctionTool(self.get_live_generating_companies),
         ]
 
         return LlmAgent(
@@ -850,15 +850,15 @@ class IoTCarbonAgent:
             logger.error(f"Error getting recent alerts: {e}")
             return {"error": f"Failed to get recent alerts: {str(e)}"}
 
-    async def get_registered_companies(self) -> Dict[str, Any]:
+    async def get_live_generating_companies(self) -> Dict[str, Any]:
         """
-        🏢 Get list of all registered companies making carbon credits
+        🏭 Get companies currently generating carbon credits live from IoT devices
         """
         try:
             if not self.device_data:
                 return {
                     "status": "no_companies",
-                    "message": "No companies currently registered for carbon credit generation",
+                    "message": "No companies currently generating carbon credits from IoT devices",
                     "mqtt_connected": self.mqtt_connected,
                     "companies": []
                 }
@@ -944,8 +944,8 @@ class IoTCarbonAgent:
             }
             
         except Exception as e:
-            logger.error(f"Error getting registered companies: {e}")
-            return {"error": f"Failed to get registered companies: {str(e)}"}
+            logger.error(f"Error getting live generating companies: {e}")
+            return {"error": f"Failed to get live generating companies: {str(e)}"}
 
     def _calculate_trend(self, values: List[float]) -> float:
         """Calculate linear trend from a list of values"""

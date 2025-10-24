@@ -161,6 +161,13 @@ class OrchestratorAgent:
         lines.append("- PaymentAgent handles immediate purchases with real blockchain transactions\n")
         lines.append("- PrebookingAgent handles future purchases with approval workflows\n")
 
+        
+        lines.append("IMPORTANT ROUTING RULES:\n")
+        lines.append("- For carbon credit purchases ('buy', 'purchase', 'get'): delegate to PaymentAgent\n")
+        lines.append("- For FUTURE carbon credit purchases ('prebook', 'create prebooking'): delegate to PrebookingAgent\n")
+        lines.append("- PaymentAgent handles immediate purchases with real blockchain transactions\n")
+        lines.append("- PrebookingAgent handles future purchases with approval workflows\n")
+
         # Agent-specific routing guidance
         lines.append("Routing rules (auto-choose agent; do not ask for data that child agents can derive):")
         if "TellTimeAgent" in names:
@@ -184,6 +191,8 @@ class OrchestratorAgent:
             lines.append("  * Discovery: 'Find 100 carbon credits at best price' -> delegate text unchanged.")
             lines.append("  * Quick list: 'show offers' -> delegate 'list_offers(limit=10)'.")
             lines.append("  * Company details: 'get company details for X' -> delegate 'get_company_details(company_name=X)'.")
+            lines.append("  * Company registration: 'show registered companies', 'list companies making carbon credits' -> delegate 'get_registered_companies()'.")
+            lines.append("  * Company details: 'which companies are registered', 'show all companies' -> delegate 'get_registered_companies()'.")
         if "IoTCarbonAgent" in names:
             lines.append("- IoT carbon sequestration -> IoTCarbonAgent:")
             lines.append("  * Live data: 'show current IoT device data' -> delegate 'get_live_sensor_data()'.")
@@ -191,8 +200,7 @@ class OrchestratorAgent:
             lines.append("  * Device status: 'show IoT device status' -> delegate 'get_device_status()'.")
             lines.append("  * Trends: 'analyze carbon sequestration trends' -> delegate 'analyze_sequestration_trends()'.")
             lines.append("  * Company advice: 'help me prepare for carbon credits' -> delegate 'get_company_preparation_advice()'.")
-            lines.append("  * Company registration: 'show registered companies', 'list companies making carbon credits' -> delegate 'get_registered_companies()'.")
-            lines.append("  * Company details: 'which companies are registered', 'show all companies' -> delegate 'get_registered_companies()'.")
+            lines.append("  * Live companies: 'which companies are generating carbon credits now', 'show companies generating live', 'get live generating companies' -> delegate 'get_live_generating_companies()'.")
         if "PrebookingAgent" in names:
             lines.append("- Carbon credit prebooking -> PrebookingAgent:")
             lines.append("  * Prebooking requests: 'prebook X credits from CompanyName', 'create prebooking for CompanyName' -> delegate text unchanged.")
